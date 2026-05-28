@@ -1,8 +1,9 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../services/api";
 
 interface Anuncio {
   id: number;
+  codigo_anuncio?: string;
   titulo: string;
   marketplace: string;
   tipo_anuncio: string;
@@ -14,6 +15,7 @@ interface Anuncio {
   status: string;
   sku_interno: string;
   produto_nome: string;
+  categoria?: string;
 }
 
 interface Produto {
@@ -25,6 +27,7 @@ interface Produto {
 export function Anuncios() {
   const [anuncios, setAnuncios] = useState<Anuncio[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [busca, setBusca] = useState("");
 
   const [produtoId, setProdutoId] = useState("");
   const [titulo, setTitulo] = useState("");
@@ -34,57 +37,39 @@ export function Anuncios() {
   const [estoqueAnuncio, setEstoqueAnuncio] = useState(1);
 
   async function carregarAnuncios() {
-    try {
-      const response = await api.get("/anuncios");
-      setAnuncios(response.data);
-    } catch (error) {
-      console.log(error);
-    }
+    const response = await api.get("/anuncios");
+    setAnuncios(response.data);
   }
 
   async function carregarProdutos() {
-    try {
-      const response = await api.get("/produtos");
-      setProdutos(response.data);
-    } catch (error) {
-      console.log(error);
-    }
+    const response = await api.get("/produtos");
+    setProdutos(response.data);
   }
 
   async function cadastrarAnuncio(event: FormEvent) {
     event.preventDefault();
 
-    try {
-      await api.post("/anuncios", {
-        produto_id: Number(produtoId),
-        marketplace,
-        titulo,
-        descricao: "",
-        tipo_anuncio: tipoAnuncio,
-        preco_venda: precoVenda,
-        estoque_anuncio: estoqueAnuncio
-      });
+    await api.post("/anuncios", {
+      produto_id: Number(produtoId),
+      marketplace,
+      titulo,
+      descricao: "",
+      tipo_anuncio: tipoAnuncio,
+      preco_venda: precoVenda,
+      estoque_anuncio: estoqueAnuncio
+    });
 
-      setTitulo("");
-      setPrecoVenda(0);
-      setEstoqueAnuncio(1);
+    setProdutoId("");
+    setTitulo("");
+    setPrecoVenda(0);
+    setEstoqueAnuncio(1);
 
-      carregarAnuncios();
-    } catch (error) {
-      console.log(error);
-      alert("Erro ao criar anúncio");
-    }
+    carregarAnuncios();
   }
 
   async function clonarAnuncio(id: number) {
-    try {
-      await api.post(`/anuncios/${id}/clonar`, {});
-
-      carregarAnuncios();
-    } catch (error) {
-      console.log(error);
-      alert("Erro ao clonar anúncio");
-    }
+    await api.post(`/anuncios/${id}/clonar`, {});
+    carregarAnuncios();
   }
 
   useEffect(() => {
@@ -92,19 +77,90 @@ export function Anuncios() {
     carregarProdutos();
   }, []);
 
+  const anunciosFiltrados = anuncios.filter((anuncio) => {
+    const texto = busca.toLowerCase();
+
+    return (
+      anuncio.titulo?.toLowerCase().includes(texto) ||
+      anuncio.sku_interno?.toLowerCase().includes(texto) ||
+      anuncio.codigo_anuncio?.toLowerCase().includes(texto)
+    );
+  });
+
+  const metricas = useMemo(() => {
+    const total = anuncios.length;
+    const completos = anuncios.filter((a) => Number(a.margem_estimada) > 0).length;
+    const incompletos = total - completos;
+    const completude = total > 0 ? Math.round((completos / total) * 100) : 0;
+    const pendentesSync = anuncios.filter((a) => !a.sincronizado).length;
+    const lucroTotalEstimado = anuncios.reduce(
+      (soma, a) => soma + Number(a.lucro_estimado || 0),
+      0
+    );
+
+    return {
+      total,
+      completos,
+      incompletos,
+      completude,
+      pendentesSync,
+      lucroTotalEstimado
+    };
+  }, [anuncios]);
+
+  function formatarMoeda(valor: number) {
+    return Number(valor || 0).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL"
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">
-          Anúncios
-        </h2>
-
+        <h2 className="text-2xl font-bold">Anúncios</h2>
         <p className="text-gray-500">
-          Gestão de anúncios vinculados ao estoque central.
+          Controle, qualidade, clonagem e desempenho dos anúncios.
         </p>
       </div>
 
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <div className="bg-white rounded-2xl shadow p-4">
+          <p className="text-gray-500 text-sm">Total</p>
+          <strong className="text-2xl">{metricas.total}</strong>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow p-4">
+          <p className="text-gray-500 text-sm">Completos</p>
+          <strong className="text-2xl text-green-700">{metricas.completos}</strong>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow p-4">
+          <p className="text-gray-500 text-sm">Incompletos</p>
+          <strong className="text-2xl text-red-600">{metricas.incompletos}</strong>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow p-4">
+          <p className="text-gray-500 text-sm">Completude</p>
+          <strong className="text-2xl">{metricas.completude}%</strong>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow p-4">
+          <p className="text-gray-500 text-sm">Pendente sync</p>
+          <strong className="text-2xl text-yellow-600">{metricas.pendentesSync}</strong>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow p-4">
+          <p className="text-gray-500 text-sm">Lucro estimado</p>
+          <strong className="text-xl text-green-700">
+            {formatarMoeda(metricas.lucroTotalEstimado)}
+          </strong>
+        </div>
+      </div>
+
       <div className="bg-white rounded-2xl shadow p-4">
+        <h3 className="font-bold mb-4">Novo anúncio</h3>
+
         <form
           onSubmit={cadastrarAnuncio}
           className="grid grid-cols-1 md:grid-cols-3 gap-4"
@@ -113,14 +169,12 @@ export function Anuncios() {
             className="border rounded-xl p-3"
             value={produtoId}
             onChange={(e) => setProdutoId(e.target.value)}
+            required
           >
-            <option value="">Selecione produto</option>
+            <option value="">Selecione produto/SKU</option>
 
             {produtos.map((produto) => (
-              <option
-                key={produto.id}
-                value={produto.id}
-              >
+              <option key={produto.id} value={produto.id}>
                 {produto.sku} - {produto.nome}
               </option>
             ))}
@@ -128,9 +182,10 @@ export function Anuncios() {
 
           <input
             className="border rounded-xl p-3"
-            placeholder="Título anúncio"
+            placeholder="Título do anúncio"
             value={titulo}
             onChange={(e) => setTitulo(e.target.value)}
+            required
           />
 
           <select
@@ -138,13 +193,9 @@ export function Anuncios() {
             value={marketplace}
             onChange={(e) => setMarketplace(e.target.value)}
           >
-            <option value="mercado_livre">
-              Mercado Livre
-            </option>
-
-            <option value="shopee">
-              Shopee
-            </option>
+            <option value="mercado_livre">Mercado Livre</option>
+            <option value="shopee">Shopee</option>
+            <option value="manual">Manual</option>
           </select>
 
           <select
@@ -152,24 +203,17 @@ export function Anuncios() {
             value={tipoAnuncio}
             onChange={(e) => setTipoAnuncio(e.target.value)}
           >
-            <option value="classico">
-              Clássico
-            </option>
-
-            <option value="premium">
-              Premium
-            </option>
+            <option value="classico">Clássico</option>
+            <option value="premium">Premium</option>
           </select>
 
           <input
             className="border rounded-xl p-3"
             type="number"
             step="0.01"
-            placeholder="Preço venda"
+            placeholder="Preço de venda"
             value={precoVenda}
-            onChange={(e) =>
-              setPrecoVenda(Number(e.target.value))
-            }
+            onChange={(e) => setPrecoVenda(Number(e.target.value))}
           />
 
           <input
@@ -177,9 +221,7 @@ export function Anuncios() {
             type="number"
             placeholder="Estoque anúncio"
             value={estoqueAnuncio}
-            onChange={(e) =>
-              setEstoqueAnuncio(Number(e.target.value))
-            }
+            onChange={(e) => setEstoqueAnuncio(Number(e.target.value))}
           />
 
           <button className="bg-blue-700 text-white rounded-xl p-3 font-bold md:col-span-3">
@@ -188,129 +230,157 @@ export function Anuncios() {
         </form>
       </div>
 
+      <div className="bg-white rounded-2xl shadow p-4">
+        <h3 className="font-bold mb-4">Exibição de anúncios</h3>
+
+        <div className="flex flex-col md:flex-row gap-3">
+          <input
+            className="border rounded-xl p-3 flex-1"
+            placeholder="Buscar por título, SKU ou ID"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
+
+          <button className="border rounded-xl p-3">
+            Excel
+          </button>
+
+          <button className="border rounded-xl p-3">
+            PDF
+          </button>
+
+          <button className="border rounded-xl p-3">
+            CSV
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow p-4">
+        <h3 className="font-bold mb-2">Central de Qualidade</h3>
+        <p className="text-gray-500 mb-4">
+          Diagnóstico de completude e rentabilidade dos seus anúncios.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+          <div>
+            <p className="text-gray-500">Score geral</p>
+            <strong>{metricas.completude}%</strong>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Anúncios com lucro</p>
+            <strong>{metricas.completos}</strong>
+          </div>
+
+          <div>
+            <p className="text-gray-500">A revisar</p>
+            <strong>{metricas.incompletos}</strong>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Pendente sincronização</p>
+            <strong>{metricas.pendentesSync}</strong>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-4">
-        {anuncios.map((anuncio) => (
-          <div
-            key={anuncio.id}
-            className="bg-white rounded-2xl shadow p-4"
-          >
-            <div className="flex flex-col gap-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="font-bold text-lg">
-                    {anuncio.titulo}
-                  </h3>
+        {anunciosFiltrados.map((anuncio) => {
+          const lucroPositivo = Number(anuncio.lucro_estimado) >= 0;
+          const score = Math.max(
+            0,
+            Math.min(100, Math.round(Number(anuncio.margem_estimada || 0)))
+          );
 
-                  <p className="text-gray-500">
-                    {anuncio.sku_interno}
-                  </p>
+          return (
+            <div key={anuncio.id} className="bg-white rounded-2xl shadow p-4">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">
+                      {anuncio.codigo_anuncio || "Sem ID marketplace"}
+                    </p>
+
+                    <h3 className="font-bold text-lg">
+                      {anuncio.titulo}
+                    </h3>
+
+                    <p className="text-gray-500">
+                      SKU: {anuncio.sku_interno} | {anuncio.produto_nome}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => clonarAnuncio(anuncio.id)}
+                    className="bg-gray-900 text-white px-4 py-3 rounded-xl font-bold"
+                  >
+                    Clonar anúncio
+                  </button>
                 </div>
 
-                <button
-                  onClick={() =>
-                    clonarAnuncio(anuncio.id)
-                  }
-                  className="bg-gray-900 text-white px-4 py-2 rounded-xl text-sm"
-                >
-                  Clonar
-                </button>
-              </div>
+                <div className="grid grid-cols-2 md:grid-cols-8 gap-3 text-sm">
+                  <div>
+                    <p className="text-gray-500">Marketplace</p>
+                    <strong>{anuncio.marketplace}</strong>
+                  </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
-                <div>
-                  <p className="text-gray-500">
-                    Marketplace
-                  </p>
+                  <div>
+                    <p className="text-gray-500">Tipo</p>
+                    <strong>{anuncio.tipo_anuncio}</strong>
+                  </div>
 
-                  <strong>
-                    {anuncio.marketplace}
-                  </strong>
+                  <div>
+                    <p className="text-gray-500">Estoque</p>
+                    <strong>{anuncio.estoque_anuncio}</strong>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-500">Preço</p>
+                    <strong>{formatarMoeda(anuncio.preco_venda)}</strong>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-500">Lucro</p>
+                    <strong className={lucroPositivo ? "text-green-700" : "text-red-600"}>
+                      {formatarMoeda(anuncio.lucro_estimado)}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-500">Margem</p>
+                    <strong>{Number(anuncio.margem_estimada || 0).toFixed(2)}%</strong>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-500">Score</p>
+                    <strong>{score}%</strong>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-500">Status</p>
+                    <strong>{anuncio.status}</strong>
+                  </div>
                 </div>
 
-                <div>
-                  <p className="text-gray-500">
-                    Tipo
-                  </p>
+                <div className="flex flex-wrap gap-2 text-sm">
+                  <span className="bg-gray-100 px-3 py-2 rounded-xl">
+                    {anuncio.sincronizado ? "Sincronizado" : "Pendente sync"}
+                  </span>
 
-                  <strong>
-                    {anuncio.tipo_anuncio}
-                  </strong>
+                  <span className="bg-gray-100 px-3 py-2 rounded-xl">
+                    {lucroPositivo ? "Rentável" : "Revisar preço"}
+                  </span>
+
+                  <span className="bg-gray-100 px-3 py-2 rounded-xl">
+                    {score >= 70 ? "Qualidade boa" : "Qualidade baixa"}
+                  </span>
                 </div>
-
-                <div>
-                  <p className="text-gray-500">
-                    Preço
-                  </p>
-
-                  <strong>
-                    R${" "}
-                    {Number(
-                      anuncio.preco_venda
-                    ).toFixed(2)}
-                  </strong>
-                </div>
-
-                <div>
-                  <p className="text-gray-500">
-                    Estoque
-                  </p>
-
-                  <strong>
-                    {anuncio.estoque_anuncio}
-                  </strong>
-                </div>
-
-                <div>
-                  <p className="text-gray-500">
-                    Lucro
-                  </p>
-
-                  <strong className="text-green-700">
-                    R${" "}
-                    {Number(
-                      anuncio.lucro_estimado
-                    ).toFixed(2)}
-                  </strong>
-                </div>
-
-                <div>
-                  <p className="text-gray-500">
-                    Margem
-                  </p>
-
-                  <strong>
-                    {Number(
-                      anuncio.margem_estimada
-                    ).toFixed(2)}
-                    %
-                  </strong>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 text-sm">
-                <span
-                  className={
-                    anuncio.sincronizado
-                      ? "text-green-700"
-                      : "text-yellow-600"
-                  }
-                >
-                  {anuncio.sincronizado
-                    ? "Sincronizado"
-                    : "Pendente sync"}
-                </span>
-
-                <span className="text-gray-400">
-                  •
-                </span>
-
-                <span>{anuncio.status}</span>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
-        {anuncios.length === 0 && (
+        {anunciosFiltrados.length === 0 && (
           <div className="bg-white rounded-2xl shadow p-8 text-center text-gray-500">
             Nenhum anúncio encontrado.
           </div>
