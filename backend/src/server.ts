@@ -4,6 +4,10 @@ import dotenv from "dotenv";
 import produtosRoutes from "./routes/produtos.routes";
 import authRoutes from "./modules/auth/routes/auth.routes";
 import anunciosRoutes from "./modules/anuncios/routes/anuncios.routes";
+import vendasRoutes from "./modules/vendas/routes/vendas.routes";
+import entradasEstoqueRoutes from "./modules/entradasEstoque/routes/entradasEstoque.routes";
+
+
 
 dotenv.config();
 
@@ -21,6 +25,9 @@ app.get("/", (req, res) => {
 app.use("/auth", authRoutes);
 app.use("/produtos", produtosRoutes);
 app.use("/anuncios", anunciosRoutes);
+app.use("/vendas", vendasRoutes);
+app.use("/entradas-estoque", entradasEstoqueRoutes);
+
 
 const PORT = process.env.PORT || 3001;
 

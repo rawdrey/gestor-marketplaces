@@ -1,45 +1,184 @@
 import { pool } from "../../../database/connection";
 
+function calcularMargem(lucro: number, precoVenda: number) {
+  if (precoVenda <= 0) return 0;
+  return (lucro / precoVenda) * 100;
+}
+
+async function buscarConfiguracaoUsuario(usuarioId: number) {
+  const result = await pool.query(
+    `
+    SELECT *
+    FROM configuracoes_usuario
+    WHERE usuario_id = $1
+    `,
+    [usuarioId]
+  );
+
+  return result.rows[0] || {};
+}
+
+async function calcularCustosPrevistos(
+  usuarioId: number,
+  produtoId: number,
+  precoVenda: number,
+  taxaMarketplacePrevista: number,
+  fretePrevisto: number,
+  outrosGastosPrevistosInformado?: number
+) {
+  const produtoResult = await pool.query(
+    `
+    SELECT *
+    FROM produtos
+    WHERE id = $1
+    AND usuario_id = $2
+    AND ativo = TRUE
+    `,
+    [produtoId, usuarioId]
+  );
+
+  if (produtoResult.rows.length === 0) {
+    throw new Error("Produto não encontrado para este usuário");
+  }
+
+  const produto = produtoResult.rows[0];
+  const config = await buscarConfiguracaoUsuario(usuarioId);
+
+  const percentualImposto = Number(config.percentual_imposto || 0);
+  const embalagemPrevista = Number(config.custo_embalagem_padrao || 0);
+  const outrosGastosPrevistos = Number(
+    outrosGastosPrevistosInformado ?? config.outros_gastos_padrao ?? 0
+  );
+
+  const impostoPrevisto = Number(precoVenda) * (percentualImposto / 100);
+
+  let custoProdutoPrevisto = 0;
+
+  if (produto.tipo_produto === "kit") {
+    const componentesResult = await pool.query(
+      `
+      SELECT
+        pc.quantidade,
+        p.custo_medio,
+        p.preco_entrada
+      FROM produto_componentes pc
+      JOIN produtos p ON p.id = pc.produto_componente_id
+      WHERE pc.produto_kit_id = $1
+      AND pc.usuario_id = $2
+      `,
+      [produtoId, usuarioId]
+    );
+
+    for (const item of componentesResult.rows) {
+      const custoUnitario = Number(item.custo_medio || item.preco_entrada || 0);
+      custoProdutoPrevisto += custoUnitario * Number(item.quantidade);
+    }
+  } else {
+    custoProdutoPrevisto = Number(
+      produto.custo_medio || produto.preco_entrada || 0
+    );
+  }
+
+  const lucroEstimado =
+    Number(precoVenda) -
+    Number(taxaMarketplacePrevista || 0) -
+    Number(fretePrevisto || 0) -
+    Number(impostoPrevisto || 0) -
+    Number(embalagemPrevista || 0) -
+    Number(outrosGastosPrevistos || 0) -
+    Number(custoProdutoPrevisto || 0);
+
+  const margemEstimada = calcularMargem(lucroEstimado, Number(precoVenda));
+
+  return {
+    produto,
+    impostoPrevisto,
+    embalagemPrevista,
+    outrosGastosPrevistos,
+    custoProdutoPrevisto,
+    lucroEstimado,
+    margemEstimada
+  };
+}
+
 export async function criarAnuncioService(usuarioId: number, data: any) {
   const {
     produto_id,
     marketplace,
     codigo_anuncio,
+    sku_marketplace,
     titulo,
     descricao,
     tipo_anuncio,
     preco_venda,
     estoque_anuncio,
-    url
+    taxa_marketplace_prevista,
+    frete_previsto,
+    outros_gastos_previstos,
+    url,
+    dados_api
   } = data;
 
-  const produto = await pool.query(
-    "SELECT id FROM produtos WHERE id = $1 AND usuario_id = $2 AND ativo = TRUE",
-    [produto_id, usuarioId]
+  const custos = await calcularCustosPrevistos(
+    usuarioId,
+    produto_id,
+    Number(preco_venda),
+    Number(taxa_marketplace_prevista || 0),
+    Number(frete_previsto || 0),
+    outros_gastos_previstos
   );
-
-  if (produto.rows.length === 0) {
-    throw new Error("Produto não encontrado para este usuário");
-  }
 
   const resultado = await pool.query(
     `
     INSERT INTO anuncios
-    (usuario_id, produto_id, marketplace, codigo_anuncio, titulo, descricao, tipo_anuncio, preco_venda, estoque_anuncio, url)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    (
+      usuario_id,
+      produto_id,
+      marketplace,
+      codigo_anuncio,
+      sku_marketplace,
+      titulo,
+      descricao,
+      tipo_anuncio,
+      preco_venda,
+      estoque_anuncio,
+      taxa_marketplace_prevista,
+      frete_previsto,
+      imposto_previsto,
+      embalagem_prevista,
+      outros_gastos_previstos,
+      custo_produto_previsto,
+      lucro_estimado,
+      margem_estimada,
+      url,
+      status,
+      dados_api
+    )
+    VALUES
+    ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,'ativo',$20)
     RETURNING *
     `,
     [
       usuarioId,
       produto_id,
       marketplace,
-      codigo_anuncio,
+      codigo_anuncio || null,
+      sku_marketplace || custos.produto.sku,
       titulo,
       descricao,
       tipo_anuncio,
       preco_venda,
       estoque_anuncio,
-      url
+      taxa_marketplace_prevista || 0,
+      frete_previsto || 0,
+      custos.impostoPrevisto,
+      custos.embalagemPrevista,
+      custos.outrosGastosPrevistos,
+      custos.custoProdutoPrevisto,
+      custos.lucroEstimado,
+      custos.margemEstimada,
+      url || null,
+      dados_api || null
     ]
   );
 
@@ -51,11 +190,12 @@ export async function listarAnunciosService(usuarioId: number) {
     `
     SELECT 
       a.*,
-      p.sku,
+      p.sku AS sku_interno,
       p.nome AS produto_nome,
+      p.tipo_produto,
       p.estoque_atual,
-      p.preco_entrada,
-      (a.preco_venda - p.preco_entrada) AS lucro_estimado
+      p.custo_medio,
+      p.preco_entrada
     FROM anuncios a
     JOIN produtos p ON p.id = a.produto_id
     WHERE a.usuario_id = $1
@@ -73,18 +213,37 @@ export async function atualizarAnuncioService(
   anuncioId: number,
   data: any
 ) {
-  const {
-    produto_id,
-    marketplace,
-    codigo_anuncio,
-    titulo,
-    descricao,
-    tipo_anuncio,
-    preco_venda,
-    estoque_anuncio,
-    url,
-    status
-  } = data;
+  const anuncioAtualResult = await pool.query(
+    `
+    SELECT *
+    FROM anuncios
+    WHERE id = $1
+    AND usuario_id = $2
+    `,
+    [anuncioId, usuarioId]
+  );
+
+  if (anuncioAtualResult.rows.length === 0) {
+    throw new Error("Anúncio não encontrado");
+  }
+
+  const atual = anuncioAtualResult.rows[0];
+
+  const produtoId = data.produto_id || atual.produto_id;
+  const precoVenda = Number(data.preco_venda ?? atual.preco_venda);
+  const taxaPrevista = Number(
+    data.taxa_marketplace_prevista ?? atual.taxa_marketplace_prevista ?? 0
+  );
+  const fretePrevisto = Number(data.frete_previsto ?? atual.frete_previsto ?? 0);
+
+  const custos = await calcularCustosPrevistos(
+    usuarioId,
+    produtoId,
+    precoVenda,
+    taxaPrevista,
+    fretePrevisto,
+    data.outros_gastos_previstos ?? atual.outros_gastos_previstos
+  );
 
   const resultado = await pool.query(
     `
@@ -93,37 +252,53 @@ export async function atualizarAnuncioService(
       produto_id = $1,
       marketplace = $2,
       codigo_anuncio = $3,
-      titulo = $4,
-      descricao = $5,
-      tipo_anuncio = $6,
-      preco_venda = $7,
-      estoque_anuncio = $8,
-      url = $9,
-      status = $10,
+      sku_marketplace = $4,
+      titulo = $5,
+      descricao = $6,
+      tipo_anuncio = $7,
+      preco_venda = $8,
+      estoque_anuncio = $9,
+      taxa_marketplace_prevista = $10,
+      frete_previsto = $11,
+      imposto_previsto = $12,
+      embalagem_prevista = $13,
+      outros_gastos_previstos = $14,
+      custo_produto_previsto = $15,
+      lucro_estimado = $16,
+      margem_estimada = $17,
+      url = $18,
+      status = $19,
+      dados_api = $20,
       atualizado_em = CURRENT_TIMESTAMP
-    WHERE id = $11
-    AND usuario_id = $12
+    WHERE id = $21
+    AND usuario_id = $22
     RETURNING *
     `,
     [
-      produto_id,
-      marketplace,
-      codigo_anuncio,
-      titulo,
-      descricao,
-      tipo_anuncio,
-      preco_venda,
-      estoque_anuncio,
-      url,
-      status,
+      produtoId,
+      data.marketplace ?? atual.marketplace,
+      data.codigo_anuncio ?? atual.codigo_anuncio,
+      data.sku_marketplace ?? atual.sku_marketplace,
+      data.titulo ?? atual.titulo,
+      data.descricao ?? atual.descricao,
+      data.tipo_anuncio ?? atual.tipo_anuncio,
+      precoVenda,
+      data.estoque_anuncio ?? atual.estoque_anuncio,
+      taxaPrevista,
+      fretePrevisto,
+      custos.impostoPrevisto,
+      custos.embalagemPrevista,
+      custos.outrosGastosPrevistos,
+      custos.custoProdutoPrevisto,
+      custos.lucroEstimado,
+      custos.margemEstimada,
+      data.url ?? atual.url,
+      data.status ?? atual.status,
+      data.dados_api ?? atual.dados_api,
       anuncioId,
       usuarioId
     ]
   );
-
-  if (resultado.rows.length === 0) {
-    throw new Error("Anúncio não encontrado");
-  }
 
   return resultado.rows[0];
 }
@@ -172,30 +347,72 @@ export async function clonarAnuncioService(
 
   const original = anuncioOriginal.rows[0];
 
-  const novoTitulo = data.titulo || `${original.titulo} - Cópia`;
-  const novoPreco = data.preco_venda || original.preco_venda;
-  const novoTipo = data.tipo_anuncio || original.tipo_anuncio;
-  const novoEstoque = data.estoque_anuncio || original.estoque_anuncio;
   const novoProdutoId = data.produto_id || original.produto_id;
+  const novoPreco = Number(data.preco_venda ?? original.preco_venda);
+  const novaTaxa = Number(
+    data.taxa_marketplace_prevista ?? original.taxa_marketplace_prevista ?? 0
+  );
+  const novoFrete = Number(data.frete_previsto ?? original.frete_previsto ?? 0);
+
+  const custos = await calcularCustosPrevistos(
+    usuarioId,
+    novoProdutoId,
+    novoPreco,
+    novaTaxa,
+    novoFrete,
+    data.outros_gastos_previstos ?? original.outros_gastos_previstos
+  );
 
   const resultado = await pool.query(
     `
     INSERT INTO anuncios
-    (usuario_id, produto_id, marketplace, codigo_anuncio, titulo, descricao, tipo_anuncio, preco_venda, estoque_anuncio, url, status)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'rascunho')
+    (
+      usuario_id,
+      produto_id,
+      marketplace,
+      codigo_anuncio,
+      sku_marketplace,
+      titulo,
+      descricao,
+      tipo_anuncio,
+      preco_venda,
+      estoque_anuncio,
+      taxa_marketplace_prevista,
+      frete_previsto,
+      imposto_previsto,
+      embalagem_prevista,
+      outros_gastos_previstos,
+      custo_produto_previsto,
+      lucro_estimado,
+      margem_estimada,
+      url,
+      status,
+      sincronizado,
+      dados_api
+    )
+    VALUES
+    ($1,$2,$3,NULL,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,NULL,'rascunho',FALSE,$18)
     RETURNING *
     `,
     [
       usuarioId,
       novoProdutoId,
-      original.marketplace,
-      null,
-      novoTitulo,
-      original.descricao,
-      novoTipo,
+      data.marketplace ?? original.marketplace,
+      data.sku_marketplace ?? original.sku_marketplace,
+      data.titulo || `${original.titulo} - Cópia`,
+      data.descricao ?? original.descricao,
+      data.tipo_anuncio ?? original.tipo_anuncio,
       novoPreco,
-      novoEstoque,
-      null
+      data.estoque_anuncio ?? original.estoque_anuncio,
+      novaTaxa,
+      novoFrete,
+      custos.impostoPrevisto,
+      custos.embalagemPrevista,
+      custos.outrosGastosPrevistos,
+      custos.custoProdutoPrevisto,
+      custos.lucroEstimado,
+      custos.margemEstimada,
+      data.dados_api ?? original.dados_api
     ]
   );
 
