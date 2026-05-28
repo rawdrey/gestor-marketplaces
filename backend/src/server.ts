@@ -6,7 +6,7 @@ import authRoutes from "./modules/auth/routes/auth.routes";
 import anunciosRoutes from "./modules/anuncios/routes/anuncios.routes";
 import vendasRoutes from "./modules/vendas/routes/vendas.routes";
 import entradasEstoqueRoutes from "./modules/entradasEstoque/routes/entradasEstoque.routes";
-
+import dashboardRoutes from "./modules/dashboard/routes/dashboard.routes";
 
 
 dotenv.config();
@@ -27,7 +27,7 @@ app.use("/produtos", produtosRoutes);
 app.use("/anuncios", anunciosRoutes);
 app.use("/vendas", vendasRoutes);
 app.use("/entradas-estoque", entradasEstoqueRoutes);
-
+app.use("/dashboard", dashboardRoutes);
 
 const PORT = process.env.PORT || 3001;
 
