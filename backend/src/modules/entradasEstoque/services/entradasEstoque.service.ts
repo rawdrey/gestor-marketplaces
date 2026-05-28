@@ -6,8 +6,16 @@ function numero(valor: any): number {
   return Number.isFinite(convertido) ? convertido : 0;
 }
 
-export async function registrarEntradaEstoqueService(usuarioId: number, data: any) {
-  const { sku, quantidade, custo_unitario, observacao } = data;
+export async function registrarEntradaEstoqueService(
+  usuarioId: number,
+  data: any
+) {
+  const {
+    sku,
+    quantidade,
+    custo_unitario,
+    observacao
+  } = data;
 
   const quantidadeEntrada = numero(quantidade);
   const custoUnitarioEntrada = numero(custo_unitario);
@@ -46,20 +54,32 @@ export async function registrarEntradaEstoqueService(usuarioId: number, data: an
     const produto = produtoResult.rows[0];
 
     if (produto.tipo_produto === "kit") {
-      throw new Error("Entrada de estoque deve ser feita nos componentes, não no kit");
+      throw new Error(
+        "Entrada de estoque deve ser feita nos componentes, não no kit"
+      );
     }
 
     const estoqueAnterior = numero(produto.estoque_atual);
-    const custoMedioAnterior = numero(produto.custo_medio || produto.preco_entrada);
 
-    const custoTotalAnterior = estoqueAnterior * custoMedioAnterior;
-    const custoTotalEntrada = quantidadeEntrada * custoUnitarioEntrada;
+    const custoMedioAnterior = numero(
+      produto.custo_medio || produto.preco_entrada
+    );
 
-    const estoqueNovo = estoqueAnterior + quantidadeEntrada;
+    const custoTotalAnterior =
+      estoqueAnterior * custoMedioAnterior;
+
+    const custoTotalEntrada =
+      quantidadeEntrada * custoUnitarioEntrada;
+
+    const estoqueNovo =
+      estoqueAnterior + quantidadeEntrada;
 
     const custoMedioNovo =
       estoqueNovo > 0
-        ? (custoTotalAnterior + custoTotalEntrada) / estoqueNovo
+        ? (
+            custoTotalAnterior +
+            custoTotalEntrada
+          ) / estoqueNovo
         : custoUnitarioEntrada;
 
     const entradaResult = await pool.query(
@@ -142,18 +162,24 @@ export async function registrarEntradaEstoqueService(usuarioId: number, data: an
       ]
     );
 
-    await sincronizarEstoqueProduto(usuarioId, produto.id);
+    await sincronizarEstoqueProduto(
+      usuarioId,
+      produto.id
+    );
 
     await pool.query("COMMIT");
 
     return entradaResult.rows[0];
+
   } catch (error) {
     await pool.query("ROLLBACK");
     throw error;
   }
 }
 
-export async function listarEntradasEstoqueService(usuarioId: number) {
+export async function listarEntradasEstoqueService(
+  usuarioId: number
+) {
   const resultado = await pool.query(
     `
     SELECT

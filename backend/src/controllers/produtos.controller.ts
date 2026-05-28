@@ -18,7 +18,15 @@ export async function criarProduto(req: AuthRequest, res: Response) {
     const resultado = await pool.query(
       `
       INSERT INTO produtos 
-      (usuario_id, sku, nome, descricao, preco_entrada, estoque_atual, estoque_minimo)
+      (
+        usuario_id,
+        sku,
+        nome,
+        descricao,
+        preco_entrada,
+        estoque_atual,
+        estoque_minimo
+      )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
       `,
@@ -34,6 +42,7 @@ export async function criarProduto(req: AuthRequest, res: Response) {
     );
 
     return res.status(201).json(resultado.rows[0]);
+
   } catch (error) {
     return res.status(500).json({
       mensagem: "Erro ao criar produto",
@@ -48,7 +57,14 @@ export async function listarProdutos(req: AuthRequest, res: Response) {
 
     const resultado = await pool.query(
       `
-      SELECT *
+      SELECT
+        id,
+        sku,
+        nome,
+        estoque_atual,
+        estoque_minimo,
+        custo_medio,
+        preco_entrada
       FROM produtos
       WHERE ativo = TRUE
       AND usuario_id = $1
@@ -58,6 +74,7 @@ export async function listarProdutos(req: AuthRequest, res: Response) {
     );
 
     return res.json(resultado.rows);
+
   } catch (error) {
     return res.status(500).json({
       mensagem: "Erro ao listar produtos",
@@ -114,6 +131,7 @@ export async function atualizarProduto(req: AuthRequest, res: Response) {
     }
 
     return res.json(resultado.rows[0]);
+
   } catch (error) {
     return res.status(500).json({
       mensagem: "Erro ao atualizar produto",
@@ -130,8 +148,9 @@ export async function desativarProduto(req: AuthRequest, res: Response) {
     const resultado = await pool.query(
       `
       UPDATE produtos
-      SET ativo = FALSE,
-          atualizado_em = CURRENT_TIMESTAMP
+      SET
+        ativo = FALSE,
+        atualizado_em = CURRENT_TIMESTAMP
       WHERE id = $1
       AND usuario_id = $2
       RETURNING *
@@ -148,6 +167,7 @@ export async function desativarProduto(req: AuthRequest, res: Response) {
     return res.json({
       mensagem: "Produto desativado com sucesso"
     });
+
   } catch (error) {
     return res.status(500).json({
       mensagem: "Erro ao desativar produto",
