@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { authMiddleware } from "../shared/middlewares/auth.middleware";
 
 import {
   criarProduto,
@@ -8,6 +9,8 @@ import {
 } from "../controllers/produtos.controller";
 
 const router = Router();
+
+router.use(authMiddleware);
 
 router.post("/", criarProduto);
 router.get("/", listarProdutos);
