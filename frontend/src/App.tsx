@@ -1,11 +1,14 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+
 import { Layout } from "./components/Layout";
+
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { Produtos } from "./pages/Produtos";
 import { EntradasEstoque } from "./pages/EntradasEstoque";
 import { Anuncios } from "./pages/Anuncios";
 import { Vendas } from "./pages/Vendas";
+import { Configuracoes } from "./pages/Configuracoes";
 
 function RotaPrivada() {
   const token = localStorage.getItem("token");
@@ -25,10 +28,31 @@ export default function App() {
 
         <Route element={<RotaPrivada />}>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/produtos" element={<Produtos />} />
-          <Route path="/entradas-estoque" element={<EntradasEstoque />} />
-          <Route path="/anuncios" element={<Anuncios />} />
-          <Route path="/vendas" element={<Vendas />} />
+
+          <Route
+            path="/produtos"
+            element={<Produtos />}
+          />
+
+          <Route
+            path="/entradas-estoque"
+            element={<EntradasEstoque />}
+          />
+
+          <Route
+            path="/anuncios"
+            element={<Anuncios />}
+          />
+
+          <Route
+            path="/vendas"
+            element={<Vendas />}
+          />
+
+          <Route
+            path="/configuracoes"
+            element={<Configuracoes />}
+          />
         </Route>
       </Routes>
     </BrowserRouter>

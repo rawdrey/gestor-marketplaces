@@ -40,6 +40,9 @@ export function Layout() {
           <Link to="/vendas" className="whitespace-nowrap font-medium">
             Vendas
           </Link>
+            <Link to="/configuracoes" className="whitespace-nowrap font-medium">
+  Configurações
+</Link>
         </div>
       </nav>
 
