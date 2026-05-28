@@ -12,7 +12,10 @@ export async function criarProduto(req: AuthRequest, res: Response) {
       descricao,
       preco_entrada,
       estoque_atual,
-      estoque_minimo
+      estoque_minimo,
+      categoria,
+      marca,
+      tipo_produto
     } = req.body;
 
     const resultado = await pool.query(
@@ -25,9 +28,12 @@ export async function criarProduto(req: AuthRequest, res: Response) {
         descricao,
         preco_entrada,
         estoque_atual,
-        estoque_minimo
+        estoque_minimo,
+        categoria,
+        marca,
+        tipo_produto
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
       RETURNING *
       `,
       [
@@ -37,7 +43,10 @@ export async function criarProduto(req: AuthRequest, res: Response) {
         descricao,
         preco_entrada,
         estoque_atual,
-        estoque_minimo
+        estoque_minimo,
+        categoria || null,
+        marca || null,
+        tipo_produto || "simples"
       ]
     );
 
@@ -64,7 +73,10 @@ export async function listarProdutos(req: AuthRequest, res: Response) {
         estoque_atual,
         estoque_minimo,
         custo_medio,
-        preco_entrada
+        preco_entrada,
+        categoria,
+        marca,
+        tipo_produto
       FROM produtos
       WHERE ativo = TRUE
       AND usuario_id = $1
