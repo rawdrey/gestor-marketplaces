@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import produtosRoutes from "./routes/produtos.routes";
 import authRoutes from "./modules/auth/routes/auth.routes";
+import anunciosRoutes from "./modules/anuncios/routes/anuncios.routes";
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.get("/", (req, res) => {
 
 app.use("/auth", authRoutes);
 app.use("/produtos", produtosRoutes);
+app.use("/anuncios", anunciosRoutes);
 
 const PORT = process.env.PORT || 3001;
 
