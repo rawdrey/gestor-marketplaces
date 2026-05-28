@@ -418,3 +418,45 @@ export async function clonarAnuncioService(
 
   return resultado.rows[0];
 }
+
+function extrairCodigoAnuncio(texto: string) {
+  const encontrado = texto.match(/MLB\d+/i);
+
+  if (encontrado) {
+    return encontrado[0].toUpperCase();
+  }
+
+  return texto.trim().toUpperCase();
+}
+
+export async function buscarAnuncioParaClonarService(
+  usuarioId: number,
+  termo: string
+) {
+  const codigo = extrairCodigoAnuncio(termo);
+
+  const resultado = await pool.query(
+    `
+    SELECT
+      a.*,
+      p.sku AS sku_interno,
+      p.nome AS produto_nome
+    FROM anuncios a
+    JOIN produtos p ON p.id = a.produto_id
+    WHERE a.usuario_id = $1
+    AND (
+      UPPER(a.codigo_anuncio) = $2
+      OR UPPER(a.sku_marketplace) = $2
+    )
+    AND a.status <> 'desativado'
+    LIMIT 1
+    `,
+    [usuarioId, codigo]
+  );
+
+  if (resultado.rows.length === 0) {
+    throw new Error("Anúncio não encontrado");
+  }
+
+  return resultado.rows[0];
+}

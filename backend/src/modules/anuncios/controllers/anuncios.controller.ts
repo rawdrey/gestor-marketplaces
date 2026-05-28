@@ -6,7 +6,8 @@ import {
   listarAnunciosService,
   atualizarAnuncioService,
   desativarAnuncioService,
-  clonarAnuncioService
+  clonarAnuncioService,
+  buscarAnuncioParaClonarService
 } from "../services/anuncios.service";
 
 export async function criarAnuncio(req: AuthRequest, res: Response) {
@@ -78,5 +79,26 @@ export async function clonarAnuncio(req: AuthRequest, res: Response) {
     });
   } catch (error: any) {
     return res.status(400).json({ mensagem: error.message });
+  }
+}
+
+export async function buscarAnuncioParaClonar(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const { termo } = req.query;
+
+    const anuncio = await buscarAnuncioParaClonarService(
+      usuarioId,
+      String(termo)
+    );
+
+    return res.json(anuncio);
+  } catch (error: any) {
+    return res.status(404).json({
+      mensagem: error.message || "Anúncio não encontrado"
+    });
   }
 }

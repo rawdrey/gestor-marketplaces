@@ -31,6 +31,9 @@ export function Layout() {
           <Link to="/produtos" className="whitespace-nowrap font-medium">
             Produtos
           </Link>
+          <Link to="/clonar-anuncio" className="whitespace-nowrap font-medium">
+  Clonar anúncio
+</Link>
           <Link to="/entradas-estoque" className="whitespace-nowrap font-medium">
             Entradas
           </Link>

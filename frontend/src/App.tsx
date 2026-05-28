@@ -8,6 +8,7 @@ import { Produtos } from "./pages/Produtos";
 import { EntradasEstoque } from "./pages/EntradasEstoque";
 import { Anuncios } from "./pages/Anuncios";
 import { Vendas } from "./pages/Vendas";
+import { ClonarAnuncio } from "./pages/ClonarAnuncio";
 import { Configuracoes } from "./pages/Configuracoes";
 
 function RotaPrivada() {
@@ -43,6 +44,9 @@ export default function App() {
             path="/anuncios"
             element={<Anuncios />}
           />
+          <Route path="/clonar-anuncio" element={<ClonarAnuncio />} />
+
+
 
           <Route
             path="/vendas"

@@ -1,22 +1,104 @@
-import { Router } from "express";
-import { authMiddleware } from "../../../shared/middlewares/auth.middleware";
+import { Response } from "express";
+import { AuthRequest } from "../../../shared/middlewares/auth.middleware";
 
 import {
-  criarAnuncio,
-  listarAnuncios,
-  atualizarAnuncio,
-  desativarAnuncio,
-  clonarAnuncio
-} from "../controllers/anuncios.controller";
+  criarAnuncioService,
+  listarAnunciosService,
+  atualizarAnuncioService,
+  desativarAnuncioService,
+  clonarAnuncioService,
+  buscarAnuncioParaClonarService
+} from "../services/anuncios.service";
 
-const router = Router();
+export async function criarAnuncio(req: AuthRequest, res: Response) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const anuncio = await criarAnuncioService(usuarioId, req.body);
+    return res.status(201).json(anuncio);
+  } catch (error: any) {
+    return res.status(400).json({ mensagem: error.message });
+  }
+}
 
-router.use(authMiddleware);
+export async function listarAnuncios(req: AuthRequest, res: Response) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const anuncios = await listarAnunciosService(usuarioId);
+    return res.json(anuncios);
+  } catch (error: any) {
+    return res.status(400).json({ mensagem: error.message });
+  }
+}
 
-router.post("/", criarAnuncio);
-router.get("/", listarAnuncios);
-router.put("/:id", atualizarAnuncio);
-router.delete("/:id", desativarAnuncio);
-router.post("/:id/clonar", clonarAnuncio);
+export async function atualizarAnuncio(req: AuthRequest, res: Response) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const { id } = req.params;
 
-export default router;
+    const anuncio = await atualizarAnuncioService(
+      usuarioId,
+      Number(id),
+      req.body
+    );
+
+    return res.json(anuncio);
+  } catch (error: any) {
+    return res.status(400).json({ mensagem: error.message });
+  }
+}
+
+export async function desativarAnuncio(req: AuthRequest, res: Response) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const { id } = req.params;
+
+    await desativarAnuncioService(usuarioId, Number(id));
+
+    return res.json({
+      mensagem: "Anúncio desativado com sucesso"
+    });
+  } catch (error: any) {
+    return res.status(400).json({ mensagem: error.message });
+  }
+}
+
+export async function clonarAnuncio(req: AuthRequest, res: Response) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const { id } = req.params;
+
+    const anuncio = await clonarAnuncioService(
+      usuarioId,
+      Number(id),
+      req.body
+    );
+
+    return res.status(201).json({
+      mensagem: "Anúncio clonado com sucesso",
+      anuncio
+    });
+  } catch (error: any) {
+    return res.status(400).json({ mensagem: error.message });
+  }
+}
+
+export async function buscarAnuncioParaClonar(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const { termo } = req.query;
+
+    const anuncio = await buscarAnuncioParaClonarService(
+      usuarioId,
+      String(termo)
+    );
+
+    return res.json(anuncio);
+  } catch (error: any) {
+    return res.status(404).json({
+      mensagem: error.message || "Anúncio não encontrado"
+    });
+  }
+}
