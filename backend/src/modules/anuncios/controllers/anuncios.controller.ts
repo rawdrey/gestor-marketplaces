@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { AuthRequest } from "../../../shared/middlewares/auth.middleware";
+import { obterContaMercadoLivreId } from "../../../shared/utils/contaMercadoLivre";
 
 import {
   criarAnuncioService,
@@ -13,7 +14,14 @@ import {
 export async function criarAnuncio(req: AuthRequest, res: Response) {
   try {
     const usuarioId = req.usuario?.id as number;
-    const anuncio = await criarAnuncioService(usuarioId, req.body);
+    const contaMercadoLivreId = obterContaMercadoLivreId(req);
+
+    const anuncio = await criarAnuncioService(
+      usuarioId,
+      req.body,
+      contaMercadoLivreId
+    );
+
     return res.status(201).json(anuncio);
   } catch (error: any) {
     return res.status(400).json({ mensagem: error.message });
@@ -23,7 +31,10 @@ export async function criarAnuncio(req: AuthRequest, res: Response) {
 export async function listarAnuncios(req: AuthRequest, res: Response) {
   try {
     const usuarioId = req.usuario?.id as number;
-    const anuncios = await listarAnunciosService(usuarioId);
+    const contaMercadoLivreId = obterContaMercadoLivreId(req);
+
+    const anuncios = await listarAnunciosService(usuarioId, contaMercadoLivreId);
+
     return res.json(anuncios);
   } catch (error: any) {
     return res.status(400).json({ mensagem: error.message });
@@ -65,12 +76,14 @@ export async function desativarAnuncio(req: AuthRequest, res: Response) {
 export async function clonarAnuncio(req: AuthRequest, res: Response) {
   try {
     const usuarioId = req.usuario?.id as number;
+    const contaMercadoLivreId = obterContaMercadoLivreId(req);
     const { id } = req.params;
 
     const anuncio = await clonarAnuncioService(
       usuarioId,
       Number(id),
-      req.body
+      req.body,
+      contaMercadoLivreId
     );
 
     return res.status(201).json({
@@ -82,17 +95,16 @@ export async function clonarAnuncio(req: AuthRequest, res: Response) {
   }
 }
 
-export async function buscarAnuncioParaClonar(
-  req: AuthRequest,
-  res: Response
-) {
+export async function buscarAnuncioParaClonar(req: AuthRequest, res: Response) {
   try {
     const usuarioId = req.usuario?.id as number;
+    const contaMercadoLivreId = obterContaMercadoLivreId(req);
     const { termo } = req.query;
 
     const anuncio = await buscarAnuncioParaClonarService(
       usuarioId,
-      String(termo)
+      String(termo),
+      contaMercadoLivreId
     );
 
     return res.json(anuncio);

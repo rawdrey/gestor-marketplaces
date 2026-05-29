@@ -16,6 +16,8 @@ interface Anuncio {
   sku_interno: string;
   produto_nome: string;
   categoria?: string;
+  conta_nickname?: string;
+  nome_conta?: string;
 }
 
 interface Produto {
@@ -307,6 +309,10 @@ export function Anuncios() {
 
                     <p className="text-gray-500">
                       SKU: {anuncio.sku_interno} | {anuncio.produto_nome}
+                    </p>
+                    
+                    <p className="text-gray-500">
+                      Conta: {anuncio.nome_conta || anuncio.conta_nickname || "Sem conta vinculada"}
                     </p>
                   </div>
 

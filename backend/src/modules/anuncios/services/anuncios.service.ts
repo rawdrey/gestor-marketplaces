@@ -101,7 +101,11 @@ async function calcularCustosPrevistos(
   };
 }
 
-export async function criarAnuncioService(usuarioId: number, data: any) {
+export async function criarAnuncioService(
+  usuarioId: number,
+  data: any,
+  contaMercadoLivreId?: number | null
+) {
   const {
     produto_id,
     marketplace,
@@ -133,6 +137,7 @@ export async function criarAnuncioService(usuarioId: number, data: any) {
     INSERT INTO anuncios
     (
       usuario_id,
+      conta_mercado_livre_id,
       produto_id,
       marketplace,
       codigo_anuncio,
@@ -155,11 +160,12 @@ export async function criarAnuncioService(usuarioId: number, data: any) {
       dados_api
     )
     VALUES
-    ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,'ativo',$20)
+    ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,'ativo',$21)
     RETURNING *
     `,
     [
       usuarioId,
+      contaMercadoLivreId || null,
       produto_id,
       marketplace,
       codigo_anuncio || null,
@@ -185,11 +191,15 @@ export async function criarAnuncioService(usuarioId: number, data: any) {
   return resultado.rows[0];
 }
 
-export async function listarAnunciosService(usuarioId: number) {
-  const resultado = await pool.query(
-    `
+export async function listarAnunciosService(
+  usuarioId: number,
+  contaMercadoLivreId?: number | null
+) {
+  let query = `
     SELECT 
       a.*,
+      c.nickname AS conta_nickname,
+      c.nome_conta,
       p.sku AS sku_interno,
       p.nome AS produto_nome,
       p.tipo_produto,
@@ -198,12 +208,21 @@ export async function listarAnunciosService(usuarioId: number) {
       p.preco_entrada
     FROM anuncios a
     JOIN produtos p ON p.id = a.produto_id
+    LEFT JOIN contas_mercado_livre c ON c.id = a.conta_mercado_livre_id
     WHERE a.usuario_id = $1
     AND a.status <> 'desativado'
-    ORDER BY a.id DESC
-    `,
-    [usuarioId]
-  );
+  `;
+
+  const params: any[] = [usuarioId];
+
+  if (contaMercadoLivreId) {
+    query += ` AND a.conta_mercado_livre_id = $2`;
+    params.push(contaMercadoLivreId);
+  }
+
+  query += ` ORDER BY a.id DESC`;
+
+  const resultado = await pool.query(query, params);
 
   return resultado.rows;
 }
@@ -329,7 +348,8 @@ export async function desativarAnuncioService(
 export async function clonarAnuncioService(
   usuarioId: number,
   anuncioId: number,
-  data: any
+  data: any,
+  contaMercadoLivreId?: number | null
 ) {
   const anuncioOriginal = await pool.query(
     `
@@ -368,6 +388,7 @@ export async function clonarAnuncioService(
     INSERT INTO anuncios
     (
       usuario_id,
+      conta_mercado_livre_id,
       produto_id,
       marketplace,
       codigo_anuncio,
@@ -391,11 +412,15 @@ export async function clonarAnuncioService(
       dados_api
     )
     VALUES
-    ($1,$2,$3,NULL,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,NULL,'rascunho',FALSE,$18)
+    ($1,$2,$3,$4,NULL,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NULL,'rascunho',FALSE,$19)
     RETURNING *
     `,
     [
       usuarioId,
+      data.conta_mercado_livre_id ||
+        contaMercadoLivreId ||
+        original.conta_mercado_livre_id ||
+        null,
       novoProdutoId,
       data.marketplace ?? original.marketplace,
       data.sku_marketplace ?? original.sku_marketplace,
@@ -431,28 +456,39 @@ function extrairCodigoAnuncio(texto: string) {
 
 export async function buscarAnuncioParaClonarService(
   usuarioId: number,
-  termo: string
+  termo: string,
+  contaMercadoLivreId?: number | null
 ) {
   const codigo = extrairCodigoAnuncio(termo);
 
-  const resultado = await pool.query(
-    `
+  let query = `
     SELECT
       a.*,
       p.sku AS sku_interno,
-      p.nome AS produto_nome
+      p.nome AS produto_nome,
+      c.nickname AS conta_nickname,
+      c.nome_conta
     FROM anuncios a
     JOIN produtos p ON p.id = a.produto_id
+    LEFT JOIN contas_mercado_livre c ON c.id = a.conta_mercado_livre_id
     WHERE a.usuario_id = $1
     AND (
       UPPER(a.codigo_anuncio) = $2
       OR UPPER(a.sku_marketplace) = $2
     )
     AND a.status <> 'desativado'
-    LIMIT 1
-    `,
-    [usuarioId, codigo]
-  );
+  `;
+
+  const params: any[] = [usuarioId, codigo];
+
+  if (contaMercadoLivreId) {
+    query += ` AND a.conta_mercado_livre_id = $3`;
+    params.push(contaMercadoLivreId);
+  }
+
+  query += ` LIMIT 1`;
+
+  const resultado = await pool.query(query, params);
 
   if (resultado.rows.length === 0) {
     throw new Error("Anúncio não encontrado");
