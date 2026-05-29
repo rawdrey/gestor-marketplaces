@@ -153,27 +153,38 @@ export async function registrarVendaService(usuarioId: number, data: any) {
     const venda = vendaResult.rows[0];
 
     if (produto.tipo_produto === "kit") {
-      const componentesBaixados = await baixarEstoqueKit(
-        usuarioId,
-        produto_id,
-        quantidadeVenda,
-        venda.id
-      );
+  const componentesBaixados = await baixarEstoqueKit(
+    usuarioId,
+    produto_id,
+    quantidadeVenda,
+    venda.id
+  );
 
-      for (const componente of componentesBaixados) {
-        await sincronizarEstoqueProduto(usuarioId, componente.produto_id);
-      }
-    } else {
-      await baixarEstoqueProdutoSimples(
-        usuarioId,
-        produto_id,
-        quantidadeVenda,
-        venda.id
-      );
+  for (const componente of componentesBaixados) {
+    await sincronizarEstoqueProduto(
+      usuarioId,
+      componente.produto_id,
+      data.conta_mercado_livre_id || null
+    );
+  }
+} else {
+  await baixarEstoqueProdutoSimples(
+    usuarioId,
+    produto_id,
+    quantidadeVenda,
+    venda.id
+  );
 
-      await sincronizarEstoqueProduto(usuarioId, produto_id);
-    }
+  await sincronizarEstoqueProduto(
+    usuarioId,
+    produto_id,
+    data.conta_mercado_livre_id || null
+  );
+}
 
+await pool.query("COMMIT");
+
+return venda;
     await pool.query("COMMIT");
 
     return venda;
