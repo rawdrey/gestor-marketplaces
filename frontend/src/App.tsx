@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 
 import { Login } from "./pages/Login";
+import { MercadoLivre } from "./pages/MercadoLivre";
 import { Dashboard } from "./pages/Dashboard";
 import { Produtos } from "./pages/Produtos";
 import { EntradasEstoque } from "./pages/EntradasEstoque";
@@ -26,6 +27,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/mercado-livre" element={<MercadoLivre />} />
 
         <Route element={<RotaPrivada />}>
           <Route path="/" element={<Dashboard />} />

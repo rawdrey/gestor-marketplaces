@@ -11,7 +11,7 @@ import {
 
 const router = Router();
 
-router.get("/callback", authMiddleware, callbackMercadoLivre);
+router.get("/callback", callbackMercadoLivre);
 
 router.use(authMiddleware);
 

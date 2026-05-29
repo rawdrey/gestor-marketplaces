@@ -28,6 +28,9 @@ export function Layout() {
           <Link to="/" className="whitespace-nowrap font-medium">
             Dashboard
           </Link>
+          <Link to="/mercado-livre" className="whitespace-nowrap font-medium">
+  Mercado Livre
+</Link>
           <Link to="/produtos" className="whitespace-nowrap font-medium">
             Produtos
           </Link>

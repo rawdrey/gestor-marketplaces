@@ -1,7 +1,8 @@
 import axios from "axios";
 import { pool } from "../../../database/connection";
+import crypto from "crypto";
 
-export async function gerarUrlAutorizacaoService() {
+export async function gerarUrlAutorizacaoService(usuarioId: number) {
   const clientId = process.env.ML_CLIENT_ID;
   const redirectUri = process.env.ML_REDIRECT_URI;
 
@@ -9,9 +10,47 @@ export async function gerarUrlAutorizacaoService() {
     throw new Error("Credenciais do Mercado Livre não configuradas");
   }
 
+  const state = crypto.randomBytes(32).toString("hex");
+
+  await pool.query(
+    `
+    INSERT INTO oauth_states (usuario_id, state)
+    VALUES ($1, $2)
+    `,
+    [usuarioId, state]
+  );
+
   return `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(
     redirectUri
-  )}`;
+  )}&state=${state}`;
+}
+
+export async function validarStateOAuthService(state: string) {
+  const resultado = await pool.query(
+    `
+    SELECT *
+    FROM oauth_states
+    WHERE state = $1
+    AND usado = FALSE
+    AND criado_em >= NOW() - INTERVAL '15 minutes'
+    `,
+    [state]
+  );
+
+  if (resultado.rows.length === 0) {
+    throw new Error("State OAuth inválido ou expirado");
+  }
+
+  await pool.query(
+    `
+    UPDATE oauth_states
+    SET usado = TRUE
+    WHERE state = $1
+    `,
+    [state]
+  );
+
+  return resultado.rows[0].usuario_id;
 }
 
 export async function salvarContaMercadoLivreService(

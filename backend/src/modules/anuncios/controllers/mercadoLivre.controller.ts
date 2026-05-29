@@ -6,12 +6,15 @@ import {
   salvarContaMercadoLivreService,
   listarContasMercadoLivreService,
   definirContaPadraoService,
-  desativarContaMercadoLivreService
+  desativarContaMercadoLivreService,
+  validarStateOAuthService
 } from "../services/mercadoLivre.service";
 
 export async function gerarUrlAutorizacao(req: AuthRequest, res: Response) {
   try {
-    const url = await gerarUrlAutorizacaoService();
+    const usuarioId = req.usuario?.id as number;
+
+    const url = await gerarUrlAutorizacaoService(usuarioId);
 
     return res.json({ url });
   } catch (error: any) {
@@ -23,12 +26,17 @@ export async function gerarUrlAutorizacao(req: AuthRequest, res: Response) {
 
 export async function callbackMercadoLivre(req: AuthRequest, res: Response) {
   try {
-    const usuarioId = req.usuario?.id as number;
-    const { code } = req.query;
+    const { code, state } = req.query;
 
     if (!code) {
       throw new Error("Code não informado pelo Mercado Livre");
     }
+
+    if (!state) {
+      throw new Error("State não informado pelo Mercado Livre");
+    }
+
+    const usuarioId = await validarStateOAuthService(String(state));
 
     await salvarContaMercadoLivreService(usuarioId, String(code));
 
@@ -76,12 +84,18 @@ export async function definirContaPadrao(req: AuthRequest, res: Response) {
   }
 }
 
-export async function desativarContaMercadoLivre(req: AuthRequest, res: Response) {
+export async function desativarContaMercadoLivre(
+  req: AuthRequest,
+  res: Response
+) {
   try {
     const usuarioId = req.usuario?.id as number;
     const { id } = req.params;
 
-    const conta = await desativarContaMercadoLivreService(usuarioId, Number(id));
+    const conta = await desativarContaMercadoLivreService(
+      usuarioId,
+      Number(id)
+    );
 
     return res.json({
       mensagem: "Conta desativada com sucesso",
