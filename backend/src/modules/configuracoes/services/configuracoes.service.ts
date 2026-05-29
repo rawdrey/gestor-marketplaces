@@ -19,9 +19,10 @@ export async function obterConfiguracoesService(usuarioId: number) {
         percentual_imposto,
         custo_embalagem_padrao,
         outros_gastos_padrao,
-        marketplace_padrao
+        marketplace_padrao,
+        sincronizar_estoque_multiconta
       )
-      VALUES ($1,0,0,0,'mercado_livre')
+      VALUES ($1,0,0,0,'mercado_livre',FALSE)
       RETURNING *
       `,
       [usuarioId]
@@ -38,7 +39,8 @@ export async function atualizarConfiguracoesService(usuarioId: number, data: any
     percentual_imposto,
     custo_embalagem_padrao,
     outros_gastos_padrao,
-    marketplace_padrao
+    marketplace_padrao,
+    sincronizar_estoque_multiconta
   } = data;
 
   const configuracaoAtual = await obterConfiguracoesService(usuarioId);
@@ -51,9 +53,10 @@ export async function atualizarConfiguracoesService(usuarioId: number, data: any
       custo_embalagem_padrao = $2,
       outros_gastos_padrao = $3,
       marketplace_padrao = $4,
+      sincronizar_estoque_multiconta = $5,
       atualizado_em = CURRENT_TIMESTAMP
-    WHERE id = $5
-    AND usuario_id = $6
+    WHERE id = $6
+    AND usuario_id = $7
     RETURNING *
     `,
     [
@@ -61,6 +64,8 @@ export async function atualizarConfiguracoesService(usuarioId: number, data: any
       custo_embalagem_padrao ?? configuracaoAtual.custo_embalagem_padrao,
       outros_gastos_padrao ?? configuracaoAtual.outros_gastos_padrao,
       marketplace_padrao ?? configuracaoAtual.marketplace_padrao,
+      sincronizar_estoque_multiconta ??
+        configuracaoAtual.sincronizar_estoque_multiconta,
       configuracaoAtual.id,
       usuarioId
     ]
