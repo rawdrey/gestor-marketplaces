@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import produtosRoutes from "./routes/produtos.routes";
+import mercadoLivreRoutes from "./modules/mercadoLivre/routes/mercadoLivre.routes";
 import authRoutes from "./modules/auth/routes/auth.routes";
 import anunciosRoutes from "./modules/anuncios/routes/anuncios.routes";
 import vendasRoutes from "./modules/vendas/routes/vendas.routes";
@@ -24,6 +25,7 @@ app.get("/", (req, res) => {
 
 app.use("/auth", authRoutes);
 app.use("/produtos", produtosRoutes);
+app.use("/mercado-livre", mercadoLivreRoutes);
 app.use("/anuncios", anunciosRoutes);
 app.use("/vendas", vendasRoutes);
 app.use("/entradas-estoque", entradasEstoqueRoutes);
