@@ -7,7 +7,9 @@ import {
   listarContasMercadoLivreService,
   definirContaPadraoService,
   importarVendasMercadoLivreService,
-  desativarContaMercadoLivreService
+  desativarContaMercadoLivreService,
+  buscarAnuncioMercadoLivreParaClonarService,
+clonarAnuncioMercadoLivreRealService
 } from "../services/mercadoLivre.service";
 
 export async function gerarUrlAutorizacao(req: AuthRequest, res: Response) {
@@ -113,6 +115,53 @@ export async function importarVendasMercadoLivre(
   } catch (error: any) {
     return res.status(400).json({
       mensagem: error.message || "Erro ao importar vendas"
+    });
+  }
+}
+
+export async function buscarAnuncioMercadoLivreParaClonar(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const contaIdHeader = req.headers["x-conta-mercado-livre-id"];
+    const contaId = contaIdHeader ? Number(contaIdHeader) : null;
+    const { termo } = req.query;
+
+    const anuncio = await buscarAnuncioMercadoLivreParaClonarService(
+      usuarioId,
+      String(termo),
+      contaId
+    );
+
+    return res.json(anuncio);
+  } catch (error: any) {
+    return res.status(400).json({
+      mensagem: error.message || "Erro ao buscar anúncio no Mercado Livre"
+    });
+  }
+}
+
+export async function clonarAnuncioMercadoLivreReal(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const contaIdHeader = req.headers["x-conta-mercado-livre-id"];
+    const contaId = contaIdHeader ? Number(contaIdHeader) : null;
+
+    const resultado = await clonarAnuncioMercadoLivreRealService(
+      usuarioId,
+      req.body,
+      contaId
+    );
+
+    return res.status(201).json(resultado);
+  } catch (error: any) {
+    return res.status(400).json({
+      mensagem: error.message || "Erro ao clonar anúncio no Mercado Livre"
     });
   }
 }

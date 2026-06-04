@@ -777,3 +777,204 @@ export async function obterAccessTokenValidoService(contaId: number) {
 
   return conta.access_token;
 }
+
+function extrairMlb(texto: string) {
+  const encontrado = texto.match(/MLB\d+/i);
+
+  if (encontrado) {
+    return encontrado[0].toUpperCase();
+  }
+
+  return texto.trim().toUpperCase();
+}
+
+export async function buscarAnuncioMercadoLivreParaClonarService(
+  usuarioId: number,
+  termo: string,
+  contaId?: number | null
+) {
+  const conta = await obterContaAtiva(usuarioId, contaId);
+  const accessToken = await obterAccessTokenValidoService(conta.id);
+  const mlb = extrairMlb(termo);
+
+  const itemResponse = await axios.get(
+    `https://api.mercadolibre.com/items/${mlb}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    }
+  );
+
+  const descricaoResponse = await axios.get(
+    `https://api.mercadolibre.com/items/${mlb}/description`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    }
+  ).catch(() => ({ data: { plain_text: "" } }));
+
+  const item = itemResponse.data;
+
+  return {
+    id: item.id,
+    title: item.title,
+    price: item.price,
+    available_quantity: item.available_quantity,
+    category_id: item.category_id,
+    currency_id: item.currency_id,
+    condition: item.condition,
+    listing_type_id: item.listing_type_id,
+    buying_mode: item.buying_mode,
+    pictures: item.pictures || [],
+    attributes: item.attributes || [],
+    shipping: item.shipping || {},
+    description: descricaoResponse.data?.plain_text || "",
+    permalink: item.permalink,
+    raw: item
+  };
+}
+
+export async function clonarAnuncioMercadoLivreRealService(
+  usuarioId: number,
+  data: any,
+  contaId?: number | null
+) {
+  const conta = await obterContaAtiva(usuarioId, contaId);
+  const accessToken = await obterAccessTokenValidoService(conta.id);
+
+  const {
+    anuncio_origem_id,
+    produto_id,
+    sku,
+    title,
+    price,
+    available_quantity,
+    category_id,
+    currency_id,
+    condition,
+    listing_type_id,
+    buying_mode,
+    pictures,
+    attributes,
+    description,
+    status
+  } = data;
+
+  if (!anuncio_origem_id) {
+    throw new Error("Anúncio de origem não informado");
+  }
+
+  if (!title) {
+    throw new Error("Título é obrigatório");
+  }
+
+  if (!price || Number(price) <= 0) {
+    throw new Error("Preço inválido");
+  }
+
+  if (!category_id) {
+    throw new Error("Categoria não informada");
+  }
+
+  const bodyPublicacao = {
+    title,
+    category_id,
+    price: Number(price),
+    currency_id: currency_id || "BRL",
+    available_quantity: Number(available_quantity || 1),
+    buying_mode: buying_mode || "buy_it_now",
+    condition: condition || "new",
+    listing_type_id: listing_type_id || "gold_special",
+    pictures: (pictures || []).map((foto: any) => ({
+      source: foto.secure_url || foto.url || foto.source
+    })),
+    attributes: attributes || []
+  };
+
+  const publicacaoResponse = await axios.post(
+    "https://api.mercadolibre.com/items",
+    bodyPublicacao,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      }
+    }
+  );
+
+  const novoItem = publicacaoResponse.data;
+
+  if (description) {
+    await axios.post(
+      `https://api.mercadolibre.com/items/${novoItem.id}/description`,
+      {
+        plain_text: description
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        }
+      }
+    ).catch(() => null);
+  }
+
+  const resultado = await pool.query(
+    `
+    INSERT INTO anuncios
+    (
+      usuario_id,
+      conta_mercado_livre_id,
+      produto_id,
+      marketplace,
+      codigo_anuncio,
+      sku_marketplace,
+      titulo,
+      descricao,
+      tipo_anuncio,
+      preco_venda,
+      estoque_anuncio,
+      status,
+      url,
+      permalink,
+      categoria_ml,
+      sincronizado,
+      ultima_sincronizacao,
+      vinculo_sku_status,
+      dados_api,
+      anuncio_origem_id,
+      clonado_api
+    )
+    VALUES
+    ($1,$2,$3,'mercado_livre',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,TRUE,CURRENT_TIMESTAMP,$15,$16,$17,TRUE)
+    RETURNING *
+    `,
+    [
+      usuarioId,
+      conta.id,
+      produto_id || null,
+      novoItem.id,
+      sku || null,
+      title,
+      description || "",
+      listing_type_id || "gold_special",
+      Number(price),
+      Number(available_quantity || 1),
+      status || "ativo",
+      novoItem.permalink || null,
+      novoItem.permalink || null,
+      category_id,
+      produto_id ? "vinculado" : "pendente",
+      novoItem,
+      anuncio_origem_id
+    ]
+  );
+
+  return {
+    mensagem: "Anúncio clonado no Mercado Livre com sucesso",
+    anuncio: resultado.rows[0],
+    mercado_livre: novoItem
+  };
+}

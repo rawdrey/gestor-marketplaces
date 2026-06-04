@@ -7,6 +7,8 @@ import {
   listarContasMercadoLivre,
   definirContaPadrao,
   desativarContaMercadoLivre,
+  buscarAnuncioMercadoLivreParaClonar,
+  clonarAnuncioMercadoLivreReal,
   importarVendasMercadoLivre
 } from "../controllers/mercadoLivre.controller";
 
@@ -21,5 +23,7 @@ router.get("/contas", listarContasMercadoLivre);
 router.put("/contas/:id/padrao", definirContaPadrao);
 router.delete("/contas/:id", desativarContaMercadoLivre);
 router.post("/importar-vendas", importarVendasMercadoLivre);
+router.get("/clonar/buscar", buscarAnuncioMercadoLivreParaClonar);
+router.post("/clonar/publicar", clonarAnuncioMercadoLivreReal);
 
 export default router;
