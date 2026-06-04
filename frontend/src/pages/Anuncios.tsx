@@ -91,6 +91,16 @@ export function Anuncios() {
     }
   }
 
+  async function sincronizarPreco(id: number) {
+    try {
+      await api.post(`/anuncios/${id}/sincronizar-preco`);
+
+      alert("Preço enviado para fila de sincronização");
+    } catch {
+      alert("Erro ao sincronizar preço");
+    }
+  }
+
   useEffect(() => {
     carregarAnuncios();
     carregarProdutos();
@@ -346,6 +356,13 @@ export function Anuncios() {
                         Vincular SKU
                       </button>
                     )}
+
+                    <button
+                      onClick={() => sincronizarPreco(anuncio.id)}
+                      className="bg-blue-700 text-white px-4 py-3 rounded-xl font-bold"
+                    >
+                      Sincronizar preço
+                    </button>
 
                     <button
                       onClick={() => clonarAnuncio(anuncio.id)}

@@ -6,12 +6,16 @@ import { Login } from "./pages/Login";
 import { MercadoLivre } from "./pages/MercadoLivre";
 import { Dashboard } from "./pages/Dashboard";
 import { Produtos } from "./pages/Produtos";
+import { AcoesMassa } from "./pages/AcoesMassa";
 import { EntradasEstoque } from "./pages/EntradasEstoque";
+import { Precos } from "./pages/Precos";
 import { Sincronizacao } from "./pages/Sincronizacao";
+import { EstoqueCompartilhado } from "./pages/EstoqueCompartilhado";
 import { Anuncios } from "./pages/Anuncios";
 import { Vendas } from "./pages/Vendas";
 import { VincularSku } from "./pages/VincularSku";
 import { ClonarAnuncio } from "./pages/ClonarAnuncio";
+import { Qualidade } from "./pages/Qualidade";
 import { Configuracoes } from "./pages/Configuracoes";
 
 function RotaPrivada() {
@@ -39,12 +43,18 @@ export default function App() {
             element={<Produtos />}
           />
 
+          <Route path="/acoes-massa" element={<AcoesMassa />} />
+
+          <Route path="/precos" element={<Precos />} />
+
           <Route
             path="/entradas-estoque"
             element={<EntradasEstoque />}
           />
 
           <Route path="/vincular-sku" element={<VincularSku />} />
+
+          <Route path="/estoque-compartilhado" element={<EstoqueCompartilhado />} />
 
           <Route
             path="/anuncios"
@@ -53,6 +63,8 @@ export default function App() {
           <Route path="/clonar-anuncio" element={<ClonarAnuncio />} />
 
           <Route path="/sincronizacao" element={<Sincronizacao />} />
+
+          <Route path="/qualidade" element={<Qualidade />} />
 
 
           <Route

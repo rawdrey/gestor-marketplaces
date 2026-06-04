@@ -113,6 +113,23 @@ export function Layout() {
             Anúncios
           </Link>
 
+          <Link to="/acoes-massa" className="whitespace-nowrap font-medium">
+            Ações em Massa
+          </Link>
+
+          <Link to="/qualidade" className="whitespace-nowrap font-medium">
+            Qualidade
+          </Link>
+
+          <Link to="/precos" className="whitespace-nowrap font-medium">
+            Preços
+          </Link>
+
+          <Link to="/estoque-compartilhado" className="whitespace-nowrap font-medium">
+            Estoque Compartilhado
+          </Link>
+
+
           <Link to="/vincular-sku" className="whitespace-nowrap font-medium">
             Vincular SKU
           </Link>

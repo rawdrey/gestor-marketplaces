@@ -1,35 +1,40 @@
 import { FormEvent, useState } from "react";
 import { api } from "../services/api";
 
-interface AnuncioEncontrado {
-  id: number;
-  codigo_anuncio: string;
-  titulo: string;
-  descricao: string;
-  marketplace: string;
-  tipo_anuncio: string;
-  preco_venda: number;
-  estoque_anuncio: number;
-  sku_interno: string;
-  produto_nome: string;
+interface AnuncioMl {
+  id: string;
+  title: string;
+  price: number;
+  available_quantity: number;
+  category_id: string;
+  currency_id: string;
+  condition: string;
+  listing_type_id: string;
+  buying_mode: string;
+  pictures: any[];
+  attributes: any[];
+  description: string;
+  permalink: string;
 }
 
 export function ClonarAnuncio() {
   const [termo, setTermo] = useState("");
-  const [anuncio, setAnuncio] = useState<AnuncioEncontrado | null>(null);
+  const [anuncio, setAnuncio] = useState<AnuncioMl | null>(null);
+  const [mensagem, setMensagem] = useState("");
 
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
-  const [precoVenda, setPrecoVenda] = useState(0);
+  const [preco, setPreco] = useState(0);
   const [estoque, setEstoque] = useState(1);
-  const [tipoAnuncio, setTipoAnuncio] = useState("classico");
+  const [tipoAnuncio, setTipoAnuncio] = useState("gold_special");
   const [clonarPausado, setClonarPausado] = useState(true);
 
   async function pesquisar(event: FormEvent) {
     event.preventDefault();
+    setMensagem("");
 
     try {
-      const response = await api.get("/anuncios/buscar-para-clonar", {
+      const response = await api.get("/mercado-livre/clonar/buscar", {
         params: {
           termo
         }
@@ -38,13 +43,15 @@ export function ClonarAnuncio() {
       const item = response.data;
 
       setAnuncio(item);
-      setTitulo(item.titulo);
-      setDescricao(item.descricao || "");
-      setPrecoVenda(Number(item.preco_venda || 0));
-      setEstoque(Number(item.estoque_anuncio || 1));
-      setTipoAnuncio(item.tipo_anuncio || "classico");
-    } catch {
-      alert("Anúncio não encontrado");
+      setTitulo(item.title || "");
+      setDescricao(item.description || "");
+      setPreco(Number(item.price || 0));
+      setEstoque(Number(item.available_quantity || 1));
+      setTipoAnuncio(item.listing_type_id || "gold_special");
+    } catch (error: any) {
+      setMensagem(
+        error.response?.data?.mensagem || "Erro ao buscar anúncio"
+      );
       setAnuncio(null);
     }
   }
@@ -53,35 +60,57 @@ export function ClonarAnuncio() {
     if (!anuncio) return;
 
     try {
-      await api.post(`/anuncios/${anuncio.id}/clonar`, {
-        titulo,
-        descricao,
-        preco_venda: precoVenda,
-        estoque_anuncio: estoque,
-        tipo_anuncio: tipoAnuncio,
-        status: clonarPausado ? "pausado" : "rascunho"
+      setMensagem("Clonando anúncio no Mercado Livre...");
+
+      const response = await api.post("/mercado-livre/clonar/publicar", {
+        anuncio_origem_id: anuncio.id,
+        title: titulo,
+        description: descricao,
+        price: preco,
+        available_quantity: estoque,
+        category_id: anuncio.category_id,
+        currency_id: anuncio.currency_id,
+        condition: anuncio.condition,
+        listing_type_id: tipoAnuncio,
+        buying_mode: anuncio.buying_mode,
+        pictures: anuncio.pictures,
+        attributes: anuncio.attributes,
+        status: clonarPausado ? "pausado" : "ativo"
       });
 
-      alert("Anúncio clonado com sucesso");
-    } catch {
-      alert("Erro ao clonar anúncio");
+      setMensagem(
+        `Anúncio clonado com sucesso: ${response.data.mercado_livre.id}`
+      );
+    } catch (error: any) {
+      setMensagem(
+        error.response?.data?.mensagem || "Erro ao clonar anúncio"
+      );
     }
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Clonar anúncio</h2>
+        <h2 className="text-2xl font-bold">Clonar anúncio Mercado Livre</h2>
         <p className="text-gray-500">
-          Cole o link ou número MLB do anúncio para buscar e clonar.
+          Cole um link ou número MLB, revise os dados e publique um clone.
         </p>
       </div>
 
+      {mensagem && (
+        <div className="bg-white rounded-2xl shadow p-4">
+          {mensagem}
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl shadow p-4">
-        <form onSubmit={pesquisar} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <form
+          onSubmit={pesquisar}
+          className="grid grid-cols-1 md:grid-cols-4 gap-4"
+        >
           <input
             className="border rounded-xl p-3 md:col-span-3"
-            placeholder="Cole o link ou número do anúncio. Ex: MLB6434072634"
+            placeholder="Cole o link ou MLB. Ex: MLB6434072634"
             value={termo}
             onChange={(e) => setTermo(e.target.value)}
             required
@@ -95,89 +124,111 @@ export function ClonarAnuncio() {
 
       {anuncio && (
         <div className="bg-white rounded-2xl shadow p-4 space-y-5">
-          <div className="border-b pb-4">
-            <p className="text-gray-500 text-sm">
-              {anuncio.codigo_anuncio || "Sem código Mercado Livre"}
-            </p>
-
-            <h3 className="text-xl font-bold">{anuncio.titulo}</h3>
-
+          <div>
+            <p className="text-sm text-gray-500">{anuncio.id}</p>
+            <h3 className="text-xl font-bold">{anuncio.title}</h3>
             <p className="text-gray-500">
-              SKU: {anuncio.sku_interno} | {anuncio.produto_nome}
+              Categoria: {anuncio.category_id} | Tipo:{" "}
+              {anuncio.listing_type_id}
             </p>
+
+            {anuncio.permalink && (
+              <a
+                href={anuncio.permalink}
+                target="_blank"
+                className="text-blue-700 font-medium"
+              >
+                Abrir anúncio original
+              </a>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+            {anuncio.pictures?.slice(0, 6).map((foto: any, index: number) => (
+              <img
+                key={index}
+                src={foto.secure_url || foto.url}
+                className="w-full h-28 object-cover rounded-xl border"
+              />
+            ))}
+          </div>
+
+          <label>
+            <span className="block mb-1 font-medium">Título</span>
+            <input
+              className="border rounded-xl p-3 w-full"
+              value={titulo}
+              onChange={(e) => setTitulo(e.target.value)}
+            />
+          </label>
+
+          <label>
+            <span className="block mb-1 font-medium">Descrição</span>
+            <textarea
+              className="border rounded-xl p-3 w-full min-h-40"
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+            />
+          </label>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <label>
-              <span className="block mb-1 font-medium">Título</span>
+              <span className="block mb-1 font-medium">Preço</span>
               <input
                 className="border rounded-xl p-3 w-full"
-                value={titulo}
-                onChange={(e) => setTitulo(e.target.value)}
+                type="number"
+                step="0.01"
+                value={preco}
+                onChange={(e) => setPreco(Number(e.target.value))}
               />
             </label>
 
             <label>
-              <span className="block mb-1 font-medium">Descrição</span>
-              <textarea
-                className="border rounded-xl p-3 w-full min-h-32"
-                value={descricao}
-                onChange={(e) => setDescricao(e.target.value)}
-              />
-            </label>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <label>
-                <span className="block mb-1 font-medium">Preço</span>
-                <input
-                  className="border rounded-xl p-3 w-full"
-                  type="number"
-                  step="0.01"
-                  value={precoVenda}
-                  onChange={(e) => setPrecoVenda(Number(e.target.value))}
-                />
-              </label>
-
-              <label>
-                <span className="block mb-1 font-medium">Quantidade estoque</span>
-                <input
-                  className="border rounded-xl p-3 w-full"
-                  type="number"
-                  value={estoque}
-                  onChange={(e) => setEstoque(Number(e.target.value))}
-                />
-              </label>
-
-              <label>
-                <span className="block mb-1 font-medium">Tipo anúncio</span>
-                <select
-                  className="border rounded-xl p-3 w-full"
-                  value={tipoAnuncio}
-                  onChange={(e) => setTipoAnuncio(e.target.value)}
-                >
-                  <option value="classico">Clássico</option>
-                  <option value="premium">Premium</option>
-                </select>
-              </label>
-            </div>
-
-            <label className="flex items-center gap-3 bg-gray-100 rounded-xl p-4">
+              <span className="block mb-1 font-medium">Estoque</span>
               <input
-                type="checkbox"
-                checked={clonarPausado}
-                onChange={(e) => setClonarPausado(e.target.checked)}
+                className="border rounded-xl p-3 w-full"
+                type="number"
+                value={estoque}
+                onChange={(e) => setEstoque(Number(e.target.value))}
               />
-
-              <span>Clonar como pausado</span>
             </label>
 
-            <button
-              onClick={clonar}
-              className="bg-green-700 text-white rounded-xl p-4 font-bold text-lg"
-            >
-              Clonar anúncio selecionado
-            </button>
+            <label>
+              <span className="block mb-1 font-medium">Tipo de anúncio</span>
+              <select
+                className="border rounded-xl p-3 w-full"
+                value={tipoAnuncio}
+                onChange={(e) => setTipoAnuncio(e.target.value)}
+              >
+                <option value="gold_special">Clássico</option>
+                <option value="gold_pro">Premium</option>
+              </select>
+            </label>
           </div>
+
+          <label className="flex items-start gap-3 bg-gray-100 rounded-xl p-4">
+            <input
+              type="checkbox"
+              checked={clonarPausado}
+              onChange={(e) => setClonarPausado(e.target.checked)}
+              className="mt-1"
+            />
+
+            <span>
+              <strong className="block">Clonar como pausado</strong>
+              <span className="text-gray-600 text-sm">
+                Recomendado para revisar o anúncio no Mercado Livre antes de
+                ativar.
+              </span>
+            </span>
+          </label>
+
+          <button
+            onClick={clonar}
+            className="bg-green-700 text-white rounded-xl p-4 font-bold text-lg w-full"
+          >
+            Clonar anúncio selecionado
+          </button>
         </div>
       )}
     </div>
