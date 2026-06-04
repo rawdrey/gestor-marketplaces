@@ -374,3 +374,299 @@ export async function importarAnunciosMercadoLivreService(
     pendentes_sku: pendentesSku
   };
 }
+
+export async function importarVendasMercadoLivreService(
+  usuarioId: number,
+  contaId?: number | null
+) {
+  const conta = await obterContaAtiva(usuarioId, contaId);
+
+  const pedidosResponse = await axios.get(
+    "https://api.mercadolibre.com/orders/search",
+    {
+      headers: {
+        Authorization: `Bearer ${conta.access_token}`
+      },
+      params: {
+        seller: conta.ml_user_id,
+        sort: "date_desc",
+        limit: 50
+      }
+    }
+  );
+
+  const pedidos = pedidosResponse.data.results || [];
+
+  let importadas = 0;
+  let ignoradas = 0;
+  let semSku = 0;
+
+  for (const pedido of pedidos) {
+    const codigoVenda = String(pedido.id);
+
+    const vendaExistente = await pool.query(
+      `
+      SELECT id
+      FROM vendas
+      WHERE usuario_id = $1
+      AND codigo_venda = $2
+      `,
+      [usuarioId, codigoVenda]
+    );
+
+    if (vendaExistente.rows.length > 0) {
+      ignoradas++;
+      continue;
+    }
+
+    const item = pedido.order_items?.[0];
+
+    if (!item) {
+      ignoradas++;
+      continue;
+    }
+
+    const itemId = item.item?.id;
+    const quantidade = Number(item.quantity || 1);
+    const valorBruto = Number(item.unit_price || 0) * quantidade;
+
+    const anuncioResult = await pool.query(
+      `
+      SELECT
+        a.*,
+        p.preco_entrada,
+        p.custo_medio,
+        p.tipo_produto
+      FROM anuncios a
+      LEFT JOIN produtos p ON p.id = a.produto_id
+      WHERE a.usuario_id = $1
+      AND a.codigo_anuncio = $2
+      LIMIT 1
+      `,
+      [usuarioId, itemId]
+    );
+
+    if (anuncioResult.rows.length === 0) {
+      semSku++;
+      continue;
+    }
+
+    const anuncio = anuncioResult.rows[0];
+
+    if (!anuncio.produto_id) {
+      semSku++;
+      continue;
+    }
+
+    const produtoResult = await pool.query(
+      `
+      SELECT *
+      FROM produtos
+      WHERE id = $1
+      AND usuario_id = $2
+      AND ativo = TRUE
+      `,
+      [anuncio.produto_id, usuarioId]
+    );
+
+    if (produtoResult.rows.length === 0) {
+      semSku++;
+      continue;
+    }
+
+    const produto = produtoResult.rows[0];
+
+    const configResult = await pool.query(
+      `
+      SELECT *
+      FROM configuracoes_usuario
+      WHERE usuario_id = $1
+      `,
+      [usuarioId]
+    );
+
+    const config = configResult.rows[0] || {};
+
+    const percentualImposto = Number(config.percentual_imposto || 0);
+    const embalagem = Number(config.custo_embalagem_padrao || 0);
+    const outrosGastos = Number(config.outros_gastos_padrao || 0);
+
+    const taxaMarketplace =
+      Number(pedido.payments?.[0]?.marketplace_fee || 0) ||
+      Number(anuncio.taxa_marketplace_prevista || 0);
+
+    const freteDescontado =
+      Number(pedido.shipping?.cost || 0) ||
+      Number(anuncio.frete_previsto || 0);
+
+    const imposto = valorBruto * (percentualImposto / 100);
+
+    const custoUnitario = Number(
+      produto.custo_medio || produto.preco_entrada || 0
+    );
+
+    const custoProduto = custoUnitario * quantidade;
+
+    const valorLiquido =
+      valorBruto -
+      taxaMarketplace -
+      freteDescontado;
+
+    const lucro =
+      valorBruto -
+      taxaMarketplace -
+      freteDescontado -
+      imposto -
+      embalagem -
+      outrosGastos -
+      custoProduto;
+
+    const margemLucro = valorBruto > 0 ? (lucro / valorBruto) * 100 : 0;
+
+    await pool.query("BEGIN");
+
+    try {
+      const vendaResult = await pool.query(
+        `
+        INSERT INTO vendas
+        (
+          usuario_id,
+          conta_mercado_livre_id,
+          produto_id,
+          anuncio_id,
+          marketplace,
+          codigo_venda,
+          quantidade,
+          valor_venda,
+          valor_bruto,
+          valor_liquido,
+          taxa_marketplace,
+          frete_pago_cliente,
+          frete_descontado,
+          frete,
+          imposto,
+          embalagem,
+          outros_gastos,
+          custo_produto,
+          lucro,
+          margem_lucro,
+          origem_api,
+          dados_api
+        )
+        VALUES
+        ($1,$2,$3,$4,'mercado_livre',$5,$6,$7,$8,$9,$10,0,$11,$12,$13,$14,$15,$16,$17,$18,TRUE,$19)
+        RETURNING *
+        `,
+        [
+          usuarioId,
+          conta.id,
+          produto.id,
+          anuncio.id,
+          codigoVenda,
+          quantidade,
+          valorBruto,
+          valorBruto,
+          valorLiquido,
+          taxaMarketplace,
+          freteDescontado,
+          freteDescontado,
+          imposto,
+          embalagem,
+          outrosGastos,
+          custoProduto,
+          lucro,
+          margemLucro,
+          pedido
+        ]
+      );
+
+      const venda = vendaResult.rows[0];
+
+      const estoqueAnterior = Number(produto.estoque_atual || 0);
+
+      if (estoqueAnterior < quantidade) {
+        throw new Error(`Estoque insuficiente para SKU ${produto.sku}`);
+      }
+
+      const estoqueNovo = estoqueAnterior - quantidade;
+
+      await pool.query(
+        `
+        UPDATE produtos
+        SET estoque_atual = $1,
+            atualizado_em = CURRENT_TIMESTAMP
+        WHERE id = $2
+        AND usuario_id = $3
+        `,
+        [estoqueNovo, produto.id, usuarioId]
+      );
+
+      await pool.query(
+        `
+        INSERT INTO movimentacoes_estoque
+        (
+          usuario_id,
+          produto_id,
+          venda_id,
+          tipo,
+          quantidade,
+          estoque_anterior,
+          estoque_novo,
+          observacao
+        )
+        VALUES ($1,$2,$3,'saida_venda',$4,$5,$6,$7)
+        `,
+        [
+          usuarioId,
+          produto.id,
+          venda.id,
+          quantidade,
+          estoqueAnterior,
+          estoqueNovo,
+          "Baixa automática por venda importada do Mercado Livre"
+        ]
+      );
+
+      await pool.query(
+        `
+        INSERT INTO fila_sincronizacao
+        (
+          usuario_id,
+          anuncio_id,
+          conta_mercado_livre_id,
+          marketplace,
+          tipo,
+          payload
+        )
+        VALUES ($1,$2,$3,'mercado_livre','estoque',$4)
+        `,
+        [
+          usuarioId,
+          anuncio.id,
+          conta.id,
+          JSON.stringify({
+            produto_id: produto.id,
+            sku: produto.sku,
+            estoque: estoqueNovo,
+            origem: "venda_mercado_livre"
+          })
+        ]
+      );
+
+      await pool.query("COMMIT");
+
+      importadas++;
+    } catch (error) {
+      await pool.query("ROLLBACK");
+      throw error;
+    }
+  }
+
+  return {
+    mensagem: "Importação de vendas concluída",
+    total_encontradas: pedidos.length,
+    importadas,
+    ignoradas_duplicadas: ignoradas,
+    ignoradas_sem_sku: semSku
+  };
+}

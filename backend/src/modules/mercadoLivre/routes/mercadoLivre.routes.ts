@@ -6,7 +6,8 @@ import {
   callbackMercadoLivre,
   listarContasMercadoLivre,
   definirContaPadrao,
-  desativarContaMercadoLivre
+  desativarContaMercadoLivre,
+  importarVendasMercadoLivre
 } from "../controllers/mercadoLivre.controller";
 
 const router = Router();
@@ -19,5 +20,6 @@ router.get("/auth-url", gerarUrlAutorizacao);
 router.get("/contas", listarContasMercadoLivre);
 router.put("/contas/:id/padrao", definirContaPadrao);
 router.delete("/contas/:id", desativarContaMercadoLivre);
+router.post("/importar-vendas", importarVendasMercadoLivre);
 
 export default router;

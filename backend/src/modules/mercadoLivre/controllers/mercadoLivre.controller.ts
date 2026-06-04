@@ -6,6 +6,7 @@ import {
   salvarContaMercadoLivreService,
   listarContasMercadoLivreService,
   definirContaPadraoService,
+  importarVendasMercadoLivreService,
   desativarContaMercadoLivreService
 } from "../services/mercadoLivre.service";
 
@@ -90,6 +91,28 @@ export async function desativarContaMercadoLivre(req: AuthRequest, res: Response
   } catch (error: any) {
     return res.status(400).json({
       mensagem: error.message || "Erro ao desativar conta"
+    });
+  }
+}
+
+export async function importarVendasMercadoLivre(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const contaIdHeader = req.headers["x-conta-mercado-livre-id"];
+    const contaId = contaIdHeader ? Number(contaIdHeader) : null;
+
+    const resultado = await importarVendasMercadoLivreService(
+      usuarioId,
+      contaId
+    );
+
+    return res.json(resultado);
+  } catch (error: any) {
+    return res.status(400).json({
+      mensagem: error.message || "Erro ao importar vendas"
     });
   }
 }

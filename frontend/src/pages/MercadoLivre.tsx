@@ -19,6 +19,21 @@ export function MercadoLivre() {
     setContas(response.data);
   }
 
+  async function importarVendas() {
+    try {
+      setMensagem("Importando vendas. Aguarde...");
+
+      const response = await api.post("/mercado-livre/importar-vendas");
+
+      setMensagem(
+        `Vendas importadas. Encontradas: ${response.data.total_encontradas}. Importadas: ${response.data.importadas}. Duplicadas: ${response.data.ignoradas_duplicadas}. Sem SKU: ${response.data.ignoradas_sem_sku}.`
+      );
+    } catch (error) {
+      console.log(error);
+      setMensagem("Erro ao importar vendas.");
+    }
+  }
+
   async function conectarMercadoLivre() {
     const response = await api.get("/mercado-livre/auth-url");
     window.location.href = response.data.url;
@@ -65,16 +80,27 @@ export function MercadoLivre() {
 
       <div className="bg-gray-900 text-white rounded-3xl shadow p-6">
         <h3 className="text-xl font-bold">Conectar nova conta</h3>
+
         <p className="text-gray-300 mt-2">
-          Autorize uma conta Mercado Livre para importar anúncios, vendas e sincronizar estoque.
+          Autorize uma conta Mercado Livre para importar anúncios, vendas e
+          sincronizar estoque.
         </p>
 
-        <button
-          onClick={conectarMercadoLivre}
-          className="mt-4 bg-yellow-400 text-gray-900 px-5 py-3 rounded-xl font-bold"
-        >
-          Conectar Mercado Livre
-        </button>
+        <div className="flex flex-wrap gap-3 mt-4">
+          <button
+            onClick={conectarMercadoLivre}
+            className="bg-yellow-400 text-gray-900 px-5 py-3 rounded-xl font-bold"
+          >
+            Conectar Mercado Livre
+          </button>
+
+          <button
+            onClick={importarVendas}
+            className="bg-green-500 text-white px-5 py-3 rounded-xl font-bold"
+          >
+            Importar vendas
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
