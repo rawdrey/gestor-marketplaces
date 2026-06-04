@@ -3,14 +3,19 @@ import { pool } from "../../../database/connection";
 async function usuarioSincronizaMulticonta(usuarioId: number) {
   const resultado = await pool.query(
     `
-    SELECT sincronizar_estoque_multiconta
+    SELECT
+      sincronizar_estoque_multiconta,
+      sincronizar_estoque_compartilhado
     FROM configuracoes_usuario
     WHERE usuario_id = $1
     `,
     [usuarioId]
   );
 
-  return Boolean(resultado.rows[0]?.sincronizar_estoque_multiconta);
+  return Boolean(
+    resultado.rows[0]?.sincronizar_estoque_multiconta ||
+      resultado.rows[0]?.sincronizar_estoque_compartilhado
+  );
 }
 
 export async function sincronizarEstoqueProduto(

@@ -11,6 +11,7 @@ import entradasEstoqueRoutes from "./modules/entradasEstoque/routes/entradasEsto
 import dashboardRoutes from "./modules/dashboard/routes/dashboard.routes";
 import precosRoutes from "./modules/precos/routes/precos.routes";
 import sincronizacaoRoutes from "./modules/sincronizacao/routes/sincronizacao.routes";
+import estoqueCompartilhadoRoutes from "./modules/estoqueCompartilhado/routes/estoqueCompartilhado.routes";
 import configuracoesRoutes from "./modules/configuracoes/routes/configuracoes.routes";
 
 dotenv.config();
@@ -33,6 +34,7 @@ app.use("/anuncios", anunciosRoutes);
 app.use("/qualidade", qualidadeRoutes);
 app.use("/precos", precosRoutes);
 app.use("/sincronizacao", sincronizacaoRoutes);
+app.use("/estoque-compartilhado", estoqueCompartilhadoRoutes);
 app.use("/vendas", vendasRoutes);
 app.use("/entradas-estoque", entradasEstoqueRoutes);
 app.use("/dashboard", dashboardRoutes);
