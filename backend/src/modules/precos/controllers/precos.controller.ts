@@ -4,7 +4,8 @@ import { obterContaMercadoLivreId } from "../../../shared/utils/contaMercadoLivr
 
 import {
   listarAnunciosPrecosService,
-  reajustarPrecosService
+  reajustarPrecosService,
+  aplicarPrecoInteligenteService
 } from "../services/precos.service";
 
 export async function listarAnunciosPrecos(req: AuthRequest, res: Response) {
@@ -40,6 +41,25 @@ export async function reajustarPrecos(req: AuthRequest, res: Response) {
   } catch (error: any) {
     return res.status(400).json({
       mensagem: error.message || "Erro ao reajustar preços"
+    });
+  }
+}
+
+export async function aplicarPrecoInteligente(req: AuthRequest, res: Response) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const contaMercadoLivreId = obterContaMercadoLivreId(req);
+
+    const resultado = await aplicarPrecoInteligenteService(
+      usuarioId,
+      req.body,
+      contaMercadoLivreId
+    );
+
+    return res.json(resultado);
+  } catch (error: any) {
+    return res.status(400).json({
+      mensagem: error.message || "Erro ao aplicar preço inteligente"
     });
   }
 }
