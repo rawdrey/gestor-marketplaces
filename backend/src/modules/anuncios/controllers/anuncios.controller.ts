@@ -8,9 +8,9 @@ import {
   atualizarAnuncioService,
   desativarAnuncioService,
   clonarAnuncioService,
-  buscarAnuncioParaClonarService
+  buscarAnuncioParaClonarService,
+  vincularSkuAnuncioService
 } from "../services/anuncios.service";
-
 export async function criarAnuncio(req: AuthRequest, res: Response) {
   try {
     const usuarioId = req.usuario?.id as number;
@@ -111,6 +111,29 @@ export async function buscarAnuncioParaClonar(req: AuthRequest, res: Response) {
   } catch (error: any) {
     return res.status(404).json({
       mensagem: error.message || "Anúncio não encontrado"
+    });
+  }
+}
+
+export async function vincularSkuAnuncio(req: AuthRequest, res: Response) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const { id } = req.params;
+    const { sku } = req.body;
+
+    const anuncio = await vincularSkuAnuncioService(
+      usuarioId,
+      Number(id),
+      sku
+    );
+
+    return res.json({
+      mensagem: "SKU vinculado com sucesso",
+      anuncio
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      mensagem: error.message || "Erro ao vincular SKU"
     });
   }
 }

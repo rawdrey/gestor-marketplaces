@@ -7,7 +7,9 @@ import {
   atualizarAnuncio,
   desativarAnuncio,
   clonarAnuncio,
+  
   buscarAnuncioParaClonar
+  vincularSkuAnuncio
 } from "../controllers/anuncios.controller";
 
 const router = Router();
@@ -18,6 +20,7 @@ router.get("/", listarAnuncios);
 router.get("/buscar-para-clonar", buscarAnuncioParaClonar);
 router.post("/", criarAnuncio);
 router.post("/:id/clonar", clonarAnuncio);
+router.put("/:id/vincular-sku", vincularSkuAnuncio);
 router.put("/:id", atualizarAnuncio);
 router.delete("/:id", desativarAnuncio);
 

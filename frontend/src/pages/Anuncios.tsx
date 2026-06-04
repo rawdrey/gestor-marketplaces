@@ -18,6 +18,7 @@ interface Anuncio {
   categoria?: string;
   conta_nickname?: string;
   nome_conta?: string;
+  vinculo_sku_status?: string;
 }
 
 interface Produto {
@@ -72,6 +73,22 @@ export function Anuncios() {
   async function clonarAnuncio(id: number) {
     await api.post(`/anuncios/${id}/clonar`, {});
     carregarAnuncios();
+  }
+
+  async function vincularSku(id: number) {
+    const sku = prompt("Digite o SKU para vincular ao anúncio:");
+
+    if (!sku) return;
+
+    try {
+      await api.put(`/anuncios/${id}/vincular-sku`, {
+        sku
+      });
+
+      carregarAnuncios();
+    } catch {
+      alert("Erro ao vincular SKU");
+    }
   }
 
   useEffect(() => {
@@ -308,20 +325,35 @@ export function Anuncios() {
                     </h3>
 
                     <p className="text-gray-500">
-                      SKU: {anuncio.sku_interno} | {anuncio.produto_nome}
+                      SKU: {anuncio.sku_interno || "Não vinculado"} |{" "}
+                      {anuncio.produto_nome || "Produto não vinculado"}
                     </p>
-                    
+
                     <p className="text-gray-500">
-                      Conta: {anuncio.nome_conta || anuncio.conta_nickname || "Sem conta vinculada"}
+                      Conta:{" "}
+                      {anuncio.nome_conta ||
+                        anuncio.conta_nickname ||
+                        "Sem conta vinculada"}
                     </p>
                   </div>
 
-                  <button
-                    onClick={() => clonarAnuncio(anuncio.id)}
-                    className="bg-gray-900 text-white px-4 py-3 rounded-xl font-bold"
-                  >
-                    Clonar anúncio
-                  </button>
+                  <div className="flex gap-2 flex-wrap">
+                    {anuncio.vinculo_sku_status === "pendente" && (
+                      <button
+                        onClick={() => vincularSku(anuncio.id)}
+                        className="bg-yellow-500 text-gray-900 px-4 py-3 rounded-xl font-bold"
+                      >
+                        Vincular SKU
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => clonarAnuncio(anuncio.id)}
+                      className="bg-gray-900 text-white px-4 py-3 rounded-xl font-bold"
+                    >
+                      Clonar anúncio
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-8 gap-3 text-sm">
@@ -379,6 +411,12 @@ export function Anuncios() {
 
                   <span className="bg-gray-100 px-3 py-2 rounded-xl">
                     {score >= 70 ? "Qualidade boa" : "Qualidade baixa"}
+                  </span>
+
+                  <span className="bg-gray-100 px-3 py-2 rounded-xl">
+                    {anuncio.vinculo_sku_status === "pendente"
+                      ? "SKU pendente"
+                      : "SKU vinculado"}
                   </span>
                 </div>
               </div>

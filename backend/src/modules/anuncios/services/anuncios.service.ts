@@ -206,9 +206,9 @@ export async function listarAnunciosService(
       p.estoque_atual,
       p.custo_medio,
       p.preco_entrada
-    FROM anuncios a
-    JOIN produtos p ON p.id = a.produto_id
-    LEFT JOIN contas_mercado_livre c ON c.id = a.conta_mercado_livre_id
+FROM anuncios a
+LEFT JOIN produtos p ON p.id = a.produto_id
+LEFT JOIN contas_mercado_livre c ON c.id = a.conta_mercado_livre_id    
     WHERE a.usuario_id = $1
     AND a.status <> 'desativado'
   `;
@@ -468,9 +468,9 @@ export async function buscarAnuncioParaClonarService(
       p.nome AS produto_nome,
       c.nickname AS conta_nickname,
       c.nome_conta
-    FROM anuncios a
-    JOIN produtos p ON p.id = a.produto_id
-    LEFT JOIN contas_mercado_livre c ON c.id = a.conta_mercado_livre_id
+FROM anuncios a
+LEFT JOIN produtos p ON p.id = a.produto_id
+LEFT JOIN contas_mercado_livre c ON c.id = a.conta_mercado_livre_id    
     WHERE a.usuario_id = $1
     AND (
       UPPER(a.codigo_anuncio) = $2
@@ -489,6 +489,50 @@ export async function buscarAnuncioParaClonarService(
   query += ` LIMIT 1`;
 
   const resultado = await pool.query(query, params);
+
+  if (resultado.rows.length === 0) {
+    throw new Error("Anúncio não encontrado");
+  }
+
+  return resultado.rows[0];
+}
+
+export async function vincularSkuAnuncioService(
+  usuarioId: number,
+  anuncioId: number,
+  sku: string
+) {
+  const produtoResult = await pool.query(
+    `
+    SELECT id
+    FROM produtos
+    WHERE usuario_id = $1
+    AND sku = $2
+    AND ativo = TRUE
+    `,
+    [usuarioId, sku]
+  );
+
+  if (produtoResult.rows.length === 0) {
+    throw new Error("SKU não encontrado");
+  }
+
+  const produtoId = produtoResult.rows[0].id;
+
+  const resultado = await pool.query(
+    `
+    UPDATE anuncios
+    SET
+      produto_id = $1,
+      sku_marketplace = $2,
+      vinculo_sku_status = 'vinculado',
+      atualizado_em = CURRENT_TIMESTAMP
+    WHERE id = $3
+    AND usuario_id = $4
+    RETURNING *
+    `,
+    [produtoId, sku, anuncioId, usuarioId]
+  );
 
   if (resultado.rows.length === 0) {
     throw new Error("Anúncio não encontrado");
