@@ -1,7 +1,6 @@
-import axios from "axios";
 import dotenv from "dotenv";
 import { pool } from "../database/connection";
-import { obterAccessTokenValidoService } from "../modules/mercadoLivre/services/mercadoLivre.service";
+import { mercadoLivrePut } from "../modules/mercadoLivre/services/mercadoLivreApi.service";
 
 dotenv.config();
 
@@ -21,28 +20,38 @@ async function buscarItemPendente() {
 }
 
 async function atualizarMercadoLivre(
-  accessToken: string,
+  usuarioId: number,
+  contaId: number,
   codigoAnuncio: string,
   payload: any,
   tipo: string
 ) {
+  if (tipo === "descricao") {
+    return mercadoLivrePut(
+      usuarioId,
+      contaId,
+      `/items/${codigoAnuncio}/description`,
+      {
+        plain_text: payload.descricao || ""
+      }
+    );
+  }
+
   const body =
     tipo === "preco"
       ? { price: Number(payload.preco || 0) }
+      : tipo === "titulo"
+      ? { title: payload.titulo }
+      : tipo === "status"
+      ? { status: payload.status }
       : { available_quantity: Number(payload.estoque || 0) };
 
-  const response = await axios.put(
-    `https://api.mercadolibre.com/items/${codigoAnuncio}`,
-    body,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json"
-      }
-    }
+  return mercadoLivrePut(
+    usuarioId,
+    contaId,
+    `/items/${codigoAnuncio}`,
+    body
   );
-
-  return response.data;
 }
 
 async function processarItem(item: any) {
@@ -74,12 +83,9 @@ async function processarItem(item: any) {
     throw new Error("Fila sem conta Mercado Livre vinculada");
   }
 
-  const accessToken = await obterAccessTokenValidoService(
-    item.conta_mercado_livre_id
-  );
-
   const resposta = await atualizarMercadoLivre(
-    accessToken,
+    item.usuario_id,
+    item.conta_mercado_livre_id,
     anuncio.codigo_anuncio,
     payload,
     item.tipo
