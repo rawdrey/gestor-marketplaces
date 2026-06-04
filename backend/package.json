@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "worker:ml": "ts-node-dev --respawn --transpile-only src/workers/sincronizarMercadoLivre.worker.ts"
   },
   "dependencies": {
     "axios": "^1.16.1",
