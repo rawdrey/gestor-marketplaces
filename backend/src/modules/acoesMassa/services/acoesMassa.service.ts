@@ -562,3 +562,233 @@ export async function alterarDescricaoMassaService(usuarioId: number, data: any)
     throw error;
   }
 }
+
+export async function alterarFotosMassaService(usuarioId: number, data: any) {
+  const { anuncio_ids, fotos, modo, enviar_sync } = data;
+  const anuncios = await buscarAnunciosSelecionados(usuarioId, anuncio_ids);
+
+  if (!Array.isArray(fotos) || fotos.length === 0) {
+    throw new Error("Informe ao menos uma foto");
+  }
+
+  let atualizados = 0;
+  let enfileirados = 0;
+
+  await pool.query("BEGIN");
+
+  try {
+    for (const anuncio of anuncios) {
+      const fotosPayload = fotos.map((foto: string) => ({
+        source: foto
+      }));
+
+      await pool.query(
+        `
+        UPDATE anuncios
+        SET fotos_massa = $1,
+            sincronizado = FALSE,
+            atualizado_em = CURRENT_TIMESTAMP
+        WHERE id = $2
+        AND usuario_id = $3
+        `,
+        [JSON.stringify(fotosPayload), anuncio.id, usuarioId]
+      );
+
+      atualizados++;
+
+      if (enviar_sync && anuncio.conta_mercado_livre_id) {
+        await pool.query(
+          `
+          INSERT INTO fila_sincronizacao
+          (
+            usuario_id,
+            anuncio_id,
+            conta_mercado_livre_id,
+            marketplace,
+            tipo,
+            payload
+          )
+          VALUES ($1,$2,$3,'mercado_livre','fotos',$4)
+          `,
+          [
+            usuarioId,
+            anuncio.id,
+            anuncio.conta_mercado_livre_id,
+            JSON.stringify({
+              anuncio_id: anuncio.id,
+              codigo_anuncio: anuncio.codigo_anuncio,
+              pictures: fotosPayload,
+              modo: modo || "substituir",
+              origem: "acoes_massa_fotos"
+            })
+          ]
+        );
+
+        enfileirados++;
+      }
+    }
+
+    await pool.query("COMMIT");
+
+    return { mensagem: "Fotos atualizadas", atualizados, enfileirados };
+  } catch (error) {
+    await pool.query("ROLLBACK");
+    throw error;
+  }
+}
+
+export async function alterarAtributosMassaService(usuarioId: number, data: any) {
+  const { anuncio_ids, marca, modelo, cor, gtin, enviar_sync } = data;
+  const anuncios = await buscarAnunciosSelecionados(usuarioId, anuncio_ids);
+
+  const atributos = [];
+
+  if (marca) atributos.push({ id: "BRAND", value_name: marca });
+  if (modelo) atributos.push({ id: "MODEL", value_name: modelo });
+  if (cor) atributos.push({ id: "COLOR", value_name: cor });
+  if (gtin) atributos.push({ id: "GTIN", value_name: gtin });
+
+  if (atributos.length === 0) {
+    throw new Error("Informe ao menos um atributo");
+  }
+
+  let atualizados = 0;
+  let enfileirados = 0;
+
+  await pool.query("BEGIN");
+
+  try {
+    for (const anuncio of anuncios) {
+      await pool.query(
+        `
+        UPDATE anuncios
+        SET atributos_massa = $1,
+            sincronizado = FALSE,
+            atualizado_em = CURRENT_TIMESTAMP
+        WHERE id = $2
+        AND usuario_id = $3
+        `,
+        [JSON.stringify(atributos), anuncio.id, usuarioId]
+      );
+
+      atualizados++;
+
+      if (enviar_sync && anuncio.conta_mercado_livre_id) {
+        await pool.query(
+          `
+          INSERT INTO fila_sincronizacao
+          (
+            usuario_id,
+            anuncio_id,
+            conta_mercado_livre_id,
+            marketplace,
+            tipo,
+            payload
+          )
+          VALUES ($1,$2,$3,'mercado_livre','atributos',$4)
+          `,
+          [
+            usuarioId,
+            anuncio.id,
+            anuncio.conta_mercado_livre_id,
+            JSON.stringify({
+              anuncio_id: anuncio.id,
+              codigo_anuncio: anuncio.codigo_anuncio,
+              attributes: atributos,
+              origem: "acoes_massa_atributos"
+            })
+          ]
+        );
+
+        enfileirados++;
+      }
+    }
+
+    await pool.query("COMMIT");
+
+    return { mensagem: "Atributos atualizados", atualizados, enfileirados };
+  } catch (error) {
+    await pool.query("ROLLBACK");
+    throw error;
+  }
+}
+
+export async function alterarMedidasMassaService(usuarioId: number, data: any) {
+  const {
+    anuncio_ids,
+    peso,
+    altura,
+    largura,
+    comprimento,
+    enviar_sync
+  } = data;
+
+  const anuncios = await buscarAnunciosSelecionados(usuarioId, anuncio_ids);
+
+  const medidas = {
+    peso: peso || null,
+    altura: altura || null,
+    largura: largura || null,
+    comprimento: comprimento || null
+  };
+
+  let atualizados = 0;
+  let enfileirados = 0;
+
+  await pool.query("BEGIN");
+
+  try {
+    for (const anuncio of anuncios) {
+      await pool.query(
+        `
+        UPDATE anuncios
+        SET medidas_massa = $1,
+            sincronizado = FALSE,
+            atualizado_em = CURRENT_TIMESTAMP
+        WHERE id = $2
+        AND usuario_id = $3
+        `,
+        [JSON.stringify(medidas), anuncio.id, usuarioId]
+      );
+
+      atualizados++;
+
+      if (enviar_sync && anuncio.conta_mercado_livre_id) {
+        await pool.query(
+          `
+          INSERT INTO fila_sincronizacao
+          (
+            usuario_id,
+            anuncio_id,
+            conta_mercado_livre_id,
+            marketplace,
+            tipo,
+            payload
+          )
+          VALUES ($1,$2,$3,'mercado_livre','medidas',$4)
+          `,
+          [
+            usuarioId,
+            anuncio.id,
+            anuncio.conta_mercado_livre_id,
+            JSON.stringify({
+              anuncio_id: anuncio.id,
+              codigo_anuncio: anuncio.codigo_anuncio,
+              medidas,
+              origem: "acoes_massa_medidas"
+            })
+          ]
+        );
+
+        enfileirados++;
+      }
+    }
+
+    await pool.query("COMMIT");
+
+    return { mensagem: "Medidas atualizadas", atualizados, enfileirados };
+  } catch (error) {
+    await pool.query("ROLLBACK");
+    throw error;
+  }
+}

@@ -8,6 +8,9 @@ import {
   alterarStatusMassaService,
   alterarTituloMassaService,
   alterarDescricaoMassaService,
+  alterarFotosMassaService,
+  alterarAtributosMassaService,
+  alterarMedidasMassaService,
   sincronizarSelecionadosMassaService
 } from "../services/acoesMassa.service";
 
@@ -122,6 +125,45 @@ export async function alterarDescricaoMassa(req: AuthRequest, res: Response) {
   } catch (error: any) {
     return res.status(400).json({
       mensagem: error.message || "Erro ao alterar descrições"
+    });
+  }
+}
+
+export async function alterarFotosMassa(req: AuthRequest, res: Response) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const resultado = await alterarFotosMassaService(usuarioId, req.body);
+
+    return res.json(resultado);
+  } catch (error: any) {
+    return res.status(400).json({
+      mensagem: error.message || "Erro ao alterar fotos"
+    });
+  }
+}
+
+export async function alterarAtributosMassa(req: AuthRequest, res: Response) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const resultado = await alterarAtributosMassaService(usuarioId, req.body);
+
+    return res.json(resultado);
+  } catch (error: any) {
+    return res.status(400).json({
+      mensagem: error.message || "Erro ao alterar atributos"
+    });
+  }
+}
+
+export async function alterarMedidasMassa(req: AuthRequest, res: Response) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const resultado = await alterarMedidasMassaService(usuarioId, req.body);
+
+    return res.json(resultado);
+  } catch (error: any) {
+    return res.status(400).json({
+      mensagem: error.message || "Erro ao alterar medidas"
     });
   }
 }

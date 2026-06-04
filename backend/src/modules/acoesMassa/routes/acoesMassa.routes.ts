@@ -7,6 +7,9 @@ import {
   alterarEstoqueMassa,
   alterarTituloMassa,
   alterarDescricaoMassa,
+  alterarFotosMassa,
+  alterarAtributosMassa,
+  alterarMedidasMassa,
   pausarAnunciosMassa,
   ativarAnunciosMassa,
   sincronizarAnunciosMassa
@@ -23,6 +26,9 @@ router.post("/pausar", pausarAnunciosMassa);
 router.post("/ativar", ativarAnunciosMassa);
 router.post("/titulo", alterarTituloMassa);
 router.post("/descricao", alterarDescricaoMassa);
+router.post("/fotos", alterarFotosMassa);
+router.post("/atributos", alterarAtributosMassa);
+router.post("/medidas", alterarMedidasMassa);
 router.post("/sincronizar", sincronizarAnunciosMassa);
 
 export default router;

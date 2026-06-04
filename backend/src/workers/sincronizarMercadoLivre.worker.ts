@@ -44,6 +44,19 @@ async function atualizarMercadoLivre(
       ? { title: payload.titulo }
       : tipo === "status"
       ? { status: payload.status }
+      : tipo === "fotos"
+      ? { pictures: payload.pictures || [] }
+      : tipo === "atributos"
+      ? { attributes: payload.attributes || [] }
+      : tipo === "medidas"
+      ? {
+          dimensions: {
+            height: payload.medidas?.altura,
+            width: payload.medidas?.largura,
+            length: payload.medidas?.comprimento,
+            weight: payload.medidas?.peso
+          }
+        }
       : { available_quantity: Number(payload.estoque || 0) };
 
   return mercadoLivrePut(
