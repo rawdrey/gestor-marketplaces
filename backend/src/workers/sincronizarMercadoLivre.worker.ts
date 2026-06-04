@@ -1,7 +1,7 @@
 import axios from "axios";
 import dotenv from "dotenv";
-import { obterAccessTokenValidoService } from "../modules/mercadoLivre/services/mercadoLivre.service";
 import { pool } from "../database/connection";
+import { obterAccessTokenValidoService } from "../modules/mercadoLivre/services/mercadoLivre.service";
 
 dotenv.config();
 
@@ -11,7 +11,6 @@ async function buscarItemPendente() {
     SELECT *
     FROM fila_sincronizacao
     WHERE status = 'pendente'
-    AND tipo = 'estoque'
     AND tentativa < 5
     ORDER BY id ASC
     LIMIT 1
@@ -21,30 +20,20 @@ async function buscarItemPendente() {
   return resultado.rows[0];
 }
 
-async function buscarConta(contaMercadoLivreId: number) {
-  const resultado = await pool.query(
-    `
-    SELECT *
-    FROM contas_mercado_livre
-    WHERE id = $1
-    AND ativo = TRUE
-    `,
-    [contaMercadoLivreId]
-  );
-
-  return resultado.rows[0];
-}
-
-async function atualizarEstoqueMercadoLivre(
+async function atualizarMercadoLivre(
   accessToken: string,
   codigoAnuncio: string,
-  estoque: number
+  payload: any,
+  tipo: string
 ) {
+  const body =
+    tipo === "preco"
+      ? { price: Number(payload.preco || 0) }
+      : { available_quantity: Number(payload.estoque || 0) };
+
   const response = await axios.put(
     `https://api.mercadolibre.com/items/${codigoAnuncio}`,
-    {
-      available_quantity: estoque
-    },
+    body,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -85,18 +74,15 @@ async function processarItem(item: any) {
     throw new Error("Fila sem conta Mercado Livre vinculada");
   }
 
-  const conta = await buscarConta(item.conta_mercado_livre_id);
+  const accessToken = await obterAccessTokenValidoService(
+    item.conta_mercado_livre_id
+  );
 
-  if (!conta) {
-    throw new Error("Conta Mercado Livre não encontrada ou inativa");
-  }
-
-  const accessToken = await obterAccessTokenValidoService(conta.id);
-
-  const resposta = await atualizarEstoqueMercadoLivre(
+  const resposta = await atualizarMercadoLivre(
     accessToken,
     anuncio.codigo_anuncio,
-    Number(payload.estoque || 0)
+    payload,
+    item.tipo
   );
 
   await pool.query(
@@ -112,18 +98,35 @@ async function processarItem(item: any) {
     [resposta, item.id]
   );
 
-  await pool.query(
-    `
-    UPDATE anuncios
-    SET
-      sincronizado = TRUE,
-      ultima_sincronizacao = CURRENT_TIMESTAMP,
-      estoque_sincronizado = $1,
-      atualizado_em = CURRENT_TIMESTAMP
-    WHERE id = $2
-    `,
-    [Number(payload.estoque || 0), anuncio.id]
-  );
+  if (item.tipo === "estoque") {
+    await pool.query(
+      `
+      UPDATE anuncios
+      SET
+        sincronizado = TRUE,
+        ultima_sincronizacao = CURRENT_TIMESTAMP,
+        estoque_sincronizado = $1,
+        atualizado_em = CURRENT_TIMESTAMP
+      WHERE id = $2
+      `,
+      [Number(payload.estoque || 0), anuncio.id]
+    );
+  }
+
+  if (item.tipo === "preco") {
+    await pool.query(
+      `
+      UPDATE anuncios
+      SET
+        sincronizado = TRUE,
+        ultima_sincronizacao = CURRENT_TIMESTAMP,
+        preco_sincronizado = $1,
+        atualizado_em = CURRENT_TIMESTAMP
+      WHERE id = $2
+      `,
+      [Number(payload.preco || 0), anuncio.id]
+    );
+  }
 }
 
 async function marcarErro(item: any, error: any) {
@@ -157,7 +160,7 @@ async function executarWorker() {
     }
 
     try {
-      console.log(`Processando fila ${item.id}`);
+      console.log(`Processando fila ${item.id} - tipo ${item.tipo}`);
       await processarItem(item);
       console.log(`Fila ${item.id} enviada com sucesso`);
     } catch (error: any) {

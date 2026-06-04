@@ -9,6 +9,7 @@ import {
   clonarAnuncio,
   listarAnunciosPendentesSku,
   vincularSkuAutomaticamente,
+  enfileirarSincronizacaoPreco,
   buscarAnuncioParaClonar,
   vincularSkuAnuncio
 } from "../controllers/anuncios.controller";
@@ -19,6 +20,7 @@ router.use(authMiddleware);
 
 router.get("/", listarAnuncios);
 router.get("/buscar-para-clonar", buscarAnuncioParaClonar);
+router.post("/:id/sincronizar-preco", enfileirarSincronizacaoPreco);
 router.get("/pendentes-sku", listarAnunciosPendentesSku);
 router.post("/vincular-automaticamente", vincularSkuAutomaticamente);
 router.post("/", criarAnuncio);

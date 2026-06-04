@@ -11,7 +11,8 @@ import {
   buscarAnuncioParaClonarService,
   listarAnunciosPendentesSkuService,
   vincularSkuAutomaticamenteService,
-  vincularSkuAnuncioService
+  vincularSkuAnuncioService,
+  enfileirarSincronizacaoPrecoService
 } from "../services/anuncios.service";
 export async function criarAnuncio(req: AuthRequest, res: Response) {
   try {
@@ -178,6 +179,27 @@ export async function vincularSkuAutomaticamente(
   } catch (error: any) {
     return res.status(400).json({
       mensagem: error.message || "Erro ao vincular automaticamente"
+    });
+  }
+}
+
+export async function enfileirarSincronizacaoPreco(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const { id } = req.params;
+
+    const resultado = await enfileirarSincronizacaoPrecoService(
+      usuarioId,
+      Number(id)
+    );
+
+    return res.json(resultado);
+  } catch (error: any) {
+    return res.status(400).json({
+      mensagem: error.message || "Erro ao enfileirar preço"
     });
   }
 }

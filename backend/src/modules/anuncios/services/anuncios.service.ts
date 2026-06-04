@@ -646,3 +646,61 @@ export async function vincularSkuAutomaticamenteService(
     nao_encontrados: naoEncontrados
   };
 }
+
+export async function enfileirarSincronizacaoPrecoService(
+  usuarioId: number,
+  anuncioId: number
+) {
+  const anuncioResult = await pool.query(
+    `
+    SELECT *
+    FROM anuncios
+    WHERE id = $1
+    AND usuario_id = $2
+    `,
+    [anuncioId, usuarioId]
+  );
+
+  if (anuncioResult.rows.length === 0) {
+    throw new Error("Anúncio não encontrado");
+  }
+
+  const anuncio = anuncioResult.rows[0];
+
+  if (!anuncio.conta_mercado_livre_id) {
+    throw new Error("Anúncio sem conta Mercado Livre vinculada");
+  }
+
+  if (!anuncio.codigo_anuncio) {
+    throw new Error("Anúncio sem código Mercado Livre");
+  }
+
+  await pool.query(
+    `
+    INSERT INTO fila_sincronizacao
+    (
+      usuario_id,
+      anuncio_id,
+      conta_mercado_livre_id,
+      marketplace,
+      tipo,
+      payload
+    )
+    VALUES ($1,$2,$3,'mercado_livre','preco',$4)
+    `,
+    [
+      usuarioId,
+      anuncio.id,
+      anuncio.conta_mercado_livre_id,
+      JSON.stringify({
+        anuncio_id: anuncio.id,
+        codigo_anuncio: anuncio.codigo_anuncio,
+        preco: Number(anuncio.preco_venda || 0)
+      })
+    ]
+  );
+
+  return {
+    mensagem: "Preço enviado para fila de sincronização"
+  };
+}
