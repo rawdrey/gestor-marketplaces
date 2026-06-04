@@ -116,6 +116,9 @@ export function Layout() {
           <Link to="/vincular-sku" className="whitespace-nowrap font-medium">
             Vincular SKU
           </Link>
+          <Link to="/sincronizacao" className="whitespace-nowrap font-medium">
+            Sincronização
+</Link>
 
           <Link to="/clonar-anuncio" className="whitespace-nowrap font-medium">
             Clonar anúncio

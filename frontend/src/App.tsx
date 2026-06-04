@@ -7,6 +7,7 @@ import { MercadoLivre } from "./pages/MercadoLivre";
 import { Dashboard } from "./pages/Dashboard";
 import { Produtos } from "./pages/Produtos";
 import { EntradasEstoque } from "./pages/EntradasEstoque";
+import { Sincronizacao } from "./pages/Sincronizacao";
 import { Anuncios } from "./pages/Anuncios";
 import { Vendas } from "./pages/Vendas";
 import { VincularSku } from "./pages/VincularSku";
@@ -51,6 +52,7 @@ export default function App() {
           />
           <Route path="/clonar-anuncio" element={<ClonarAnuncio />} />
 
+          <Route path="/sincronizacao" element={<Sincronizacao />} />
 
 
           <Route
