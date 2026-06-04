@@ -107,9 +107,10 @@ export async function salvarContaMercadoLivreService(
       refresh_token,
       expires_in,
       token_criado_em,
+      token_expira_em,
       ativo
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_TIMESTAMP,TRUE)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP + ($7 || ' seconds')::INTERVAL,TRUE)
     ON CONFLICT (usuario_id, ml_user_id)
     DO UPDATE SET
       nickname = EXCLUDED.nickname,
@@ -118,6 +119,7 @@ export async function salvarContaMercadoLivreService(
       refresh_token = EXCLUDED.refresh_token,
       expires_in = EXCLUDED.expires_in,
       token_criado_em = CURRENT_TIMESTAMP,
+      token_expira_em = CURRENT_TIMESTAMP + (EXCLUDED.expires_in || ' seconds')::INTERVAL,
       ativo = TRUE,
       atualizado_em = CURRENT_TIMESTAMP
     RETURNING *
@@ -263,12 +265,13 @@ export async function importarAnunciosMercadoLivreService(
   contaId?: number | null
 ) {
   const conta = await obterContaAtiva(usuarioId, contaId);
+  const accessToken = await obterAccessTokenValidoService(conta.id);
 
   const itensResponse = await axios.get(
     `https://api.mercadolibre.com/users/${conta.ml_user_id}/items/search`,
     {
       headers: {
-        Authorization: `Bearer ${conta.access_token}`
+        Authorization: `Bearer ${accessToken}`
       },
       params: {
         limit: 50
@@ -286,7 +289,7 @@ export async function importarAnunciosMercadoLivreService(
       `https://api.mercadolibre.com/items/${itemId}`,
       {
         headers: {
-          Authorization: `Bearer ${conta.access_token}`
+          Authorization: `Bearer ${accessToken}`
         }
       }
     );
@@ -380,12 +383,13 @@ export async function importarVendasMercadoLivreService(
   contaId?: number | null
 ) {
   const conta = await obterContaAtiva(usuarioId, contaId);
+  const accessToken = await obterAccessTokenValidoService(conta.id);
 
   const pedidosResponse = await axios.get(
     "https://api.mercadolibre.com/orders/search",
     {
       headers: {
-        Authorization: `Bearer ${conta.access_token}`
+        Authorization: `Bearer ${accessToken}`
       },
       params: {
         seller: conta.ml_user_id,
@@ -669,4 +673,107 @@ export async function importarVendasMercadoLivreService(
     ignoradas_duplicadas: ignoradas,
     ignoradas_sem_sku: semSku
   };
+}
+
+export async function renovarTokenMercadoLivreService(contaId: number) {
+  const contaResult = await pool.query(
+    `
+    SELECT *
+    FROM contas_mercado_livre
+    WHERE id = $1
+    AND ativo = TRUE
+    `,
+    [contaId]
+  );
+
+  if (contaResult.rows.length === 0) {
+    throw new Error("Conta Mercado Livre não encontrada");
+  }
+
+  const conta = contaResult.rows[0];
+
+  const clientId = process.env.ML_CLIENT_ID;
+  const clientSecret = process.env.ML_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Credenciais Mercado Livre não configuradas");
+  }
+
+  const response = await axios.post(
+    "https://api.mercadolibre.com/oauth/token",
+    new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: conta.refresh_token
+    }),
+    {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      }
+    }
+  );
+
+  const {
+    access_token,
+    refresh_token,
+    expires_in
+  } = response.data;
+
+  const resultado = await pool.query(
+    `
+    UPDATE contas_mercado_livre
+    SET
+      access_token = $1,
+      refresh_token = $2,
+      expires_in = $3,
+      token_criado_em = CURRENT_TIMESTAMP,
+      token_expira_em = CURRENT_TIMESTAMP + ($3 || ' seconds')::INTERVAL,
+      atualizado_em = CURRENT_TIMESTAMP
+    WHERE id = $4
+    RETURNING *
+    `,
+    [
+      access_token,
+      refresh_token,
+      expires_in,
+      contaId
+    ]
+  );
+
+  return resultado.rows[0];
+}
+
+export async function obterAccessTokenValidoService(contaId: number) {
+  const contaResult = await pool.query(
+    `
+    SELECT *
+    FROM contas_mercado_livre
+    WHERE id = $1
+    AND ativo = TRUE
+    `,
+    [contaId]
+  );
+
+  if (contaResult.rows.length === 0) {
+    throw new Error("Conta Mercado Livre não encontrada");
+  }
+
+  const conta = contaResult.rows[0];
+
+  if (!conta.token_expira_em) {
+    return conta.access_token;
+  }
+
+  const expiraEm = new Date(conta.token_expira_em).getTime();
+  const agora = Date.now();
+
+  const cincoMinutos = 5 * 60 * 1000;
+
+  if (expiraEm - agora <= cincoMinutos) {
+    const contaAtualizada = await renovarTokenMercadoLivreService(contaId);
+    return contaAtualizada.access_token;
+  }
+
+  return conta.access_token;
 }

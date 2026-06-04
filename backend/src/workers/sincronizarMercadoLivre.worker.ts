@@ -1,5 +1,6 @@
 import axios from "axios";
 import dotenv from "dotenv";
+import { obterAccessTokenValidoService } from "../modules/mercadoLivre/services/mercadoLivre.service";
 import { pool } from "../database/connection";
 
 dotenv.config();
@@ -90,8 +91,10 @@ async function processarItem(item: any) {
     throw new Error("Conta Mercado Livre não encontrada ou inativa");
   }
 
+  const accessToken = await obterAccessTokenValidoService(conta.id);
+
   const resposta = await atualizarEstoqueMercadoLivre(
-    conta.access_token,
+    accessToken,
     anuncio.codigo_anuncio,
     Number(payload.estoque || 0)
   );
