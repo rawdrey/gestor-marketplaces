@@ -60,6 +60,36 @@ export async function criarProduto(req: AuthRequest, res: Response) {
   }
 }
 
+export async function buscarProdutos(req: AuthRequest, res: Response) {
+  try {
+    const usuarioId = req.usuario?.id;
+    const { termo } = req.query;
+
+    const resultado = await pool.query(
+      `
+      SELECT id, sku, nome, estoque_atual, custo_medio
+      FROM produtos
+      WHERE usuario_id = $1
+      AND ativo = TRUE
+      AND (
+        sku ILIKE $2
+        OR nome ILIKE $2
+      )
+      ORDER BY nome ASC
+      LIMIT 20
+      `,
+      [usuarioId, `%${termo || ""}%`]
+    );
+
+    return res.json(resultado.rows);
+  } catch (error) {
+    return res.status(500).json({
+      mensagem: "Erro ao buscar produtos",
+      error
+    });
+  }
+}
+
 export async function listarProdutos(req: AuthRequest, res: Response) {
   try {
     const usuarioId = req.usuario?.id;

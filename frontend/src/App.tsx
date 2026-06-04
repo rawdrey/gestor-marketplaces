@@ -9,6 +9,7 @@ import { Produtos } from "./pages/Produtos";
 import { EntradasEstoque } from "./pages/EntradasEstoque";
 import { Anuncios } from "./pages/Anuncios";
 import { Vendas } from "./pages/Vendas";
+import { VincularSku } from "./pages/VincularSku";
 import { ClonarAnuncio } from "./pages/ClonarAnuncio";
 import { Configuracoes } from "./pages/Configuracoes";
 
@@ -41,6 +42,8 @@ export default function App() {
             path="/entradas-estoque"
             element={<EntradasEstoque />}
           />
+
+          <Route path="/vincular-sku" element={<VincularSku />} />
 
           <Route
             path="/anuncios"

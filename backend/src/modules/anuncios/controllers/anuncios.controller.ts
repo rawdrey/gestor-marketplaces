@@ -9,6 +9,8 @@ import {
   desativarAnuncioService,
   clonarAnuncioService,
   buscarAnuncioParaClonarService,
+  listarAnunciosPendentesSkuService,
+  vincularSkuAutomaticamenteService,
   vincularSkuAnuncioService
 } from "../services/anuncios.service";
 export async function criarAnuncio(req: AuthRequest, res: Response) {
@@ -134,6 +136,48 @@ export async function vincularSkuAnuncio(req: AuthRequest, res: Response) {
   } catch (error: any) {
     return res.status(400).json({
       mensagem: error.message || "Erro ao vincular SKU"
+    });
+  }
+}
+
+export async function listarAnunciosPendentesSku(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const contaMercadoLivreId = obterContaMercadoLivreId(req);
+
+    const anuncios = await listarAnunciosPendentesSkuService(
+      usuarioId,
+      contaMercadoLivreId
+    );
+
+    return res.json(anuncios);
+  } catch (error: any) {
+    return res.status(400).json({
+      mensagem: error.message || "Erro ao listar anúncios pendentes"
+    });
+  }
+}
+
+export async function vincularSkuAutomaticamente(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const usuarioId = req.usuario?.id as number;
+    const contaMercadoLivreId = obterContaMercadoLivreId(req);
+
+    const resultado = await vincularSkuAutomaticamenteService(
+      usuarioId,
+      contaMercadoLivreId
+    );
+
+    return res.json(resultado);
+  } catch (error: any) {
+    return res.status(400).json({
+      mensagem: error.message || "Erro ao vincular automaticamente"
     });
   }
 }

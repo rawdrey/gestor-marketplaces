@@ -540,3 +540,109 @@ export async function vincularSkuAnuncioService(
 
   return resultado.rows[0];
 }
+
+export async function listarAnunciosPendentesSkuService(
+  usuarioId: number,
+  contaMercadoLivreId?: number | null
+) {
+  let query = `
+    SELECT
+      a.*,
+      c.nickname AS conta_nickname,
+      c.nome_conta,
+      p.sku AS sku_interno,
+      p.nome AS produto_nome
+    FROM anuncios a
+    LEFT JOIN produtos p ON p.id = a.produto_id
+    LEFT JOIN contas_mercado_livre c ON c.id = a.conta_mercado_livre_id
+    WHERE a.usuario_id = $1
+    AND a.status <> 'desativado'
+    AND (
+      a.vinculo_sku_status = 'pendente'
+      OR a.produto_id IS NULL
+    )
+  `;
+
+  const params: any[] = [usuarioId];
+
+  if (contaMercadoLivreId) {
+    query += ` AND a.conta_mercado_livre_id = $2`;
+    params.push(contaMercadoLivreId);
+  }
+
+  query += ` ORDER BY a.id DESC`;
+
+  const resultado = await pool.query(query, params);
+
+  return resultado.rows;
+}
+
+export async function vincularSkuAutomaticamenteService(
+  usuarioId: number,
+  contaMercadoLivreId?: number | null
+) {
+  let query = `
+    SELECT *
+    FROM anuncios
+    WHERE usuario_id = $1
+    AND status <> 'desativado'
+    AND (
+      vinculo_sku_status = 'pendente'
+      OR produto_id IS NULL
+    )
+    AND sku_marketplace IS NOT NULL
+    AND sku_marketplace <> ''
+  `;
+
+  const params: any[] = [usuarioId];
+
+  if (contaMercadoLivreId) {
+    query += ` AND conta_mercado_livre_id = $2`;
+    params.push(contaMercadoLivreId);
+  }
+
+  const anunciosResult = await pool.query(query, params);
+
+  let vinculados = 0;
+  let naoEncontrados = 0;
+
+  for (const anuncio of anunciosResult.rows) {
+    const produtoResult = await pool.query(
+      `
+      SELECT id
+      FROM produtos
+      WHERE usuario_id = $1
+      AND sku = $2
+      AND ativo = TRUE
+      `,
+      [usuarioId, anuncio.sku_marketplace]
+    );
+
+    if (produtoResult.rows.length === 0) {
+      naoEncontrados++;
+      continue;
+    }
+
+    await pool.query(
+      `
+      UPDATE anuncios
+      SET
+        produto_id = $1,
+        vinculo_sku_status = 'vinculado',
+        atualizado_em = CURRENT_TIMESTAMP
+      WHERE id = $2
+      AND usuario_id = $3
+      `,
+      [produtoResult.rows[0].id, anuncio.id, usuarioId]
+    );
+
+    vinculados++;
+  }
+
+  return {
+    mensagem: "Vinculação automática concluída",
+    total_analisados: anunciosResult.rows.length,
+    vinculados,
+    nao_encontrados: naoEncontrados
+  };
+}
